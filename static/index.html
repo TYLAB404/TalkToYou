@@ -2286,13 +2286,6 @@
         if (card) card.classList.add("hidden");
       }, 3500);
     }
-      if (synthTimerInterval) clearInterval(synthTimerInterval);
-      const stage = document.getElementById("synthStageText");
-      stage.innerText = `❌ ${msg}`;
-      setTimeout(() => {
-        document.getElementById("synthesisProgressCard").classList.add("hidden");
-      }, 3500);
-    }
 
     // 语音识别转文字 (ASR) 业务逻辑
     let mediaRecorder = null;
