@@ -5,7 +5,12 @@
 
 import os
 import io
-import torch
+try:
+    import torch
+    HAS_TORCH = True
+except ImportError:
+    torch = None
+    HAS_TORCH = False
 import numpy as np
 import soundfile as sf
 
@@ -13,6 +18,8 @@ _model = None
 
 def get_asr_model():
     global _model
+    if not HAS_TORCH:
+        raise RuntimeError("系统未安装 PyTorch。ASR 语音识别功能需要 torch 依赖。")
     if _model is None:
         from funasr import AutoModel
         # SenseVoiceSmall 显存占用仅约 400MB，推理超快 (<50ms)

@@ -4,7 +4,12 @@ import json
 import uuid
 import asyncio
 import edge_tts
-import torch
+try:
+    import torch
+    HAS_TORCH = True
+except ImportError:
+    torch = None
+    HAS_TORCH = False
 import soundfile as sf
 import numpy as np
 from scipy import signal
@@ -251,6 +256,8 @@ class TTSEngine:
 
     def get_cosyvoice_model(self):
         """单例加载 CosyVoice 声音克隆模型 (GPU fp16)"""
+        if not HAS_TORCH:
+            raise RuntimeError("系统未安装 PyTorch。本地模型克隆需要 torch 与 GPU 环境，请使用 RunningHub 云端工作流或 Edge-TTS。")
         if self._cosyvoice_model is None:
             # 释放 IndexTTS-2 及其缓存，确保显存和内存绝对充裕，避免 Windows 发生 PCIe 内存交换
             if self._indextts2_model is not None:
@@ -269,6 +276,8 @@ class TTSEngine:
 
     def get_indextts2_model(self):
         """单例加载 IndexTTS2 情感解耦声音克隆大模型 (GPU fp16)"""
+        if not HAS_TORCH:
+            raise RuntimeError("系统未安装 PyTorch。本地模型克隆需要 torch 与 GPU 环境，请使用 RunningHub 云端工作流或 Edge-TTS。")
         if self._indextts2_model is None:
             # 释放 CosyVoice 及其缓存，确保显存和内存绝对充裕，避免 Windows 发生 PCIe 内存交换
             if self._cosyvoice_model is not None:
