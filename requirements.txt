@@ -20,6 +20,8 @@ soundfile>=0.12.1
 numpy>=1.24.0
 scipy>=1.10.0
 pilk>=0.2.0
+qrcode>=7.4.2
+pillow>=10.0.0
 
 # 4. 可选：本地 GPU 语音识别与模型推理 (若仅使用 RunningHub 云端与 EdgeTTS 则无需安装此部分)
 # torch>=2.0.0
