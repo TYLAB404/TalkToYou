@@ -41,10 +41,22 @@ class NapCatManager:
 
     def _load_webui_config(self):
         """自动寻址并读取 NapCat WebUI 配置文件"""
+        # 1. 如果是 Docker 容器运行，直接从容器读取生成的 webui.json
+        try:
+            res = subprocess.run(["docker", "exec", "napcat", "cat", "/app/napcat/config/webui.json"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=2.0)
+            if res.returncode == 0 and res.stdout.strip():
+                cfg = json.loads(res.stdout)
+                self.webui_port = cfg.get("port", 6099)
+                self.webui_token = cfg.get("token", "")
+                print(f"[NapCatManager] 成功通过 Docker 获取 NapCat WebUI 配置: Port={self.webui_port}")
+                return
+        except Exception:
+            pass
+
         if not self.napcat_dir:
             return
 
-        # 尝试查找 webui.json
+        # 尝试查找本地 webui.json
         candidates = [
             os.path.join(self.napcat_dir, "versions", "9.9.33-52230", "resources", "app", "napcat", "config", "webui.json"),
             os.path.join(self.napcat_dir, "config", "webui.json"),
@@ -71,16 +83,25 @@ class NapCatManager:
 
     def is_process_running(self) -> bool:
         """检查 NapCat 进程或 WebUI 服务是否正在运行"""
+        import socket
+        # 1. 优先使用 TCP Socket 直接探测端口连通性 (绝不会因为 302/401 误判为未启动)
         try:
-            # 快速端口检查
-            req = urllib.request.Request(f"http://{self.webui_host}:{self.webui_port}/webui/", headers={"User-Agent": "TalkToYou"})
-            with urllib.request.urlopen(req, timeout=1.0) as resp:
-                if resp.status == 200:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.8)
+                if s.connect_ex((self.webui_host, self.webui_port)) == 0:
                     return True
         except Exception:
             pass
 
-        # 降级通过系统进程检查
+        # 2. 探测 Docker 容器状态
+        try:
+            res = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", "napcat"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=1.0)
+            if res.returncode == 0 and "true" in res.stdout.lower():
+                return True
+        except Exception:
+            pass
+
+        # 3. 降级通过系统进程检查
         try:
             if sys.platform == "win32":
                 output = subprocess.check_output('tasklist /FI "IMAGENAME eq NapCatWinBootMain.exe" /NH', shell=True).decode('gbk', errors='ignore')
@@ -98,6 +119,17 @@ class NapCatManager:
         """后台静默拉起 NapCat 守护进程"""
         if self.is_process_running():
             return {"success": True, "message": "NapCatQQ 已经在运行中"}
+
+        # 若存在 Docker 容器，优先直接启动容器
+        try:
+            res = subprocess.run(["docker", "start", "napcat"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5.0)
+            if res.returncode == 0:
+                for _ in range(6):
+                    time.sleep(1.0)
+                    if self.is_process_running():
+                        return {"success": True, "message": "NapCat Docker 容器已成功在后台启动！"}
+        except Exception:
+            pass
 
         if not self.napcat_dir:
             self.napcat_dir = self._detect_napcat_dir()
@@ -135,6 +167,15 @@ class NapCatManager:
 
     def stop_process(self) -> Dict[str, Any]:
         """关闭 NapCat 守护进程及专属 QQ 实例 (精确匹配路径，绝不误杀主号)"""
+        # 如果是 Docker 容器，优先停止容器
+        try:
+            res = subprocess.run(["docker", "stop", "napcat"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5.0)
+            if res.returncode == 0:
+                self._cached_credential = None
+                return {"success": True, "message": "NapCat Docker 容器已安全停止"}
+        except Exception:
+            pass
+
         try:
             if sys.platform == "win32":
                 subprocess.run('taskkill /F /IM NapCatWinBootMain.exe /T', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -308,15 +349,26 @@ class NapCatManager:
                     error_msg = data.get("loginError", "")
 
         qr_b64 = None
-        # 优先从 NapCat 原生生成的 qrcode.png 提取 base64
-        cache_qr_path = os.path.join(self.napcat_dir, "versions", "9.9.33-52230", "resources", "app", "napcat", "cache", "qrcode.png")
-        if not is_login and os.path.exists(cache_qr_path) and os.path.getsize(cache_qr_path) > 100:
+        # 1. 若运行在 Docker 中，直接从容器中提取腾讯官方生成的 qrcode.png (零转换损耗)
+        if not is_login:
             try:
-                with open(cache_qr_path, "rb") as qrf:
-                    qr_b64 = "data:image/png;base64," + base64.b64encode(qrf.read()).decode()
+                res = subprocess.run(["docker", "exec", "napcat", "base64", "-w", "0", "/app/napcat/cache/qrcode.png"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=2.0)
+                if res.returncode == 0 and len(res.stdout.strip()) > 100:
+                    qr_b64 = "data:image/png;base64," + res.stdout.strip()
             except Exception:
                 pass
 
+        # 2. 从本地 NapCat 安装目录中的 qrcode.png 提取 base64
+        if not is_login and not qr_b64 and self.napcat_dir:
+            cache_qr_path = os.path.join(self.napcat_dir, "versions", "9.9.33-52230", "resources", "app", "napcat", "cache", "qrcode.png")
+            if os.path.exists(cache_qr_path) and os.path.getsize(cache_qr_path) > 100:
+                try:
+                    with open(cache_qr_path, "rb") as qrf:
+                        qr_b64 = "data:image/png;base64," + base64.b64encode(qrf.read()).decode()
+                except Exception:
+                    pass
+
+        # 3. 兜底：若有 qr_url 则通过 qrcode 库动态渲染
         if not is_login and not qr_b64 and qr_url:
             qr_b64 = self._url_to_qr_base64(qr_url)
 
