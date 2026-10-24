@@ -19,8 +19,12 @@ echo "===================================================="
 echo "当前绑定: http://${HOST}:${PORT}"
 echo "----------------------------------------------------"
 
-# 检查系统 Python 3 环境
-if command -v python3 &>/dev/null; then
+# 优先使用项目目录下的虚拟环境 Python
+if [ -f "$SCRIPT_DIR/venv/bin/python3" ]; then
+    PY_BIN="$SCRIPT_DIR/venv/bin/python3"
+elif [ -f "$SCRIPT_DIR/venv/bin/python" ]; then
+    PY_BIN="$SCRIPT_DIR/venv/bin/python"
+elif command -v python3 &>/dev/null; then
     PY_BIN="python3"
 elif command -v python &>/dev/null; then
     PY_BIN="python"
