@@ -1,0 +1,56 @@
+[
+  {
+    "id": "preset_xiaoxiao",
+    "name": "温柔知性姐姐 (晓晓)",
+    "type": "preset",
+    "gender": "female",
+    "description": "声音温和柔美、咬字清晰，适合日常交谈与问候",
+    "engine": "edge",
+    "voice_code": "zh-CN-XiaoxiaoNeural",
+    "prompt_audio": "voices/presets/preset_xiaoxiao.wav"
+  },
+  {
+    "id": "preset_yunjian",
+    "name": "磁性沉稳青年 (云健)",
+    "type": "preset",
+    "gender": "male",
+    "description": "声音深沉厚重、磁性有力，适合稳重严肃或故事讲述",
+    "engine": "edge",
+    "voice_code": "zh-CN-YunjianNeural",
+    "prompt_audio": "voices/presets/preset_yunjian.wav"
+  },
+  {
+    "id": "preset_xiaoyi",
+    "name": "元气活力少女 (晓伊)",
+    "type": "preset",
+    "gender": "female",
+    "description": "音色清新欢快、朝气蓬勃，充满青春活力",
+    "engine": "edge",
+    "voice_code": "zh-CN-XiaoyiNeural",
+    "prompt_audio": "voices/presets/preset_xiaoyi.wav"
+  },
+  {
+    "id": "preset_yunxi",
+    "name": "阳光暖心少年 (云希)",
+    "type": "preset",
+    "gender": "male",
+    "description": "自然亲切、语调轻快，就像邻家暖心大男孩",
+    "engine": "edge",
+    "voice_code": "zh-CN-YunxiNeural",
+    "prompt_audio": "voices/presets/preset_yunxi.wav"
+  },
+  {
+    "id": "custom_c40bb54a",
+    "name": "坎特蕾拉",
+    "type": "custom",
+    "gender": "custom",
+    "description": "用户自定义克隆音色",
+    "engine": "cosyvoice",
+    "prompt_audio": "C:\\Users\\Admin\\Desktop\\CodeWork\\TalkToYou\\voices\\customs\\custom_c40bb54a.wav",
+    "prompt_audio_url": "/voices/customs/custom_c40bb54a.wav",
+    "prompt_text": "家族的人给你添麻烦了，但世上没有洗不掉的墨字，不愉快，是有很多办法可以消除的。",
+    "emotion_audio": "C:\\Users\\Admin\\Desktop\\CodeWork\\TalkToYou\\voices\\customs\\custom_c40bb54a_emotion.wav",
+    "emotion_audio_url": "/voices/customs/custom_c40bb54a_emotion.wav",
+    "emotion_name": "温柔诱惑"
+  }
+]

@@ -1,0 +1,95 @@
+{
+  "enabled": true,
+  "active_workflow": "2113847965285941250",
+  "key_name": "我的主账号",
+  "workflows": {
+    "2113835289022435330": {
+      "name": "IndexTTS2 旗舰情感克隆工作流",
+      "type": "indextts2",
+      "description": "基于 IndexTTS2 旗舰级情感解耦声音克隆大模型，支持自然语言情绪微调与情绪强度控制。"
+    },
+    "2113847965285941250": {
+      "name": "BreezeTTS2 多角色AI语音工作流",
+      "type": "breezetts2",
+      "description": "包含 8 位高拟真人设角色（Alice/Bob/Carol等），支持对话级多角色合成与模型精度微调。"
+    }
+  },
+  "breeze_settings": {
+    "speaker": "Alice",
+    "high_precision": true,
+    "active_speaker": "Alice",
+    "speakers": {
+      "Alice": {
+        "name": "Alice",
+        "clone_mode": false,
+        "instruction": "温暖清晰的年轻女声，语调平和，普通话标准，语速适中。",
+        "audio_file": "bfe9e3b92304dabb9cf6888b7182895ae6fd3e8fa302a8be10a552fb18d61464.mp3",
+        "audio_label": "Alice 官方预设原声音频",
+        "preview_url": ""
+      },
+      "Bob": {
+        "name": "Bob",
+        "clone_mode": false,
+        "instruction": "低沉稳重的男声，略带磁性，语速稍慢，普通话标准。",
+        "audio_file": "455171f03c25d54129af190b95a12848089d21fc61a398b59c5b484252e4e69d.flac",
+        "audio_label": "Bob 官方预设原声音频",
+        "preview_url": ""
+      },
+      "Carol": {
+        "name": "Carol",
+        "clone_mode": false,
+        "instruction": "活泼明亮的少女声，语速轻快，带着笑意。",
+        "audio_file": "719477257c995fcb67bda307e08bf341f20fd1775f7cae1c2d2b276a3c28af47.mp3",
+        "audio_label": "Carol 官方预设原声音频",
+        "preview_url": ""
+      },
+      "David": {
+        "name": "David",
+        "clone_mode": false,
+        "instruction": "成熟浑厚的中年男声，气息沉稳，吐字清晰。",
+        "audio_file": "dfb0ae81ed2177efb825d85f55614ac5dccf19826646605c5f053ed31d57915a.mp3",
+        "audio_label": "David 官方预设原声音频",
+        "preview_url": ""
+      },
+      "Emma": {
+        "name": "Emma",
+        "clone_mode": false,
+        "instruction": "温柔舒缓的知性女声，轻声细语，节奏从容。",
+        "audio_file": "bfe9e3b92304dabb9cf6888b7182895ae6fd3e8fa302a8be10a552fb18d61464.mp3",
+        "audio_label": "Emma 官方预设原声音频",
+        "preview_url": ""
+      },
+      "Frank": {
+        "name": "Frank",
+        "clone_mode": false,
+        "instruction": "沙哑有磁性的烟嗓男声，低沉有力，语速偏慢。",
+        "audio_file": "719477257c995fcb67bda307e08bf341f20fd1775f7cae1c2d2b276a3c28af47.mp3",
+        "audio_label": "Frank 官方预设原声音频",
+        "preview_url": ""
+      },
+      "Grace": {
+        "name": "Grace",
+        "clone_mode": false,
+        "instruction": "甜美清脆的年轻女声，干净利落，略带俏皮。",
+        "audio_file": "6f15ed193a3ac9960e86da252c9268322e970a0041812af38e893894bbb39014.mp3",
+        "audio_label": "Grace 官方预设原声音频",
+        "preview_url": ""
+      },
+      "Henry": {
+        "name": "Henry",
+        "clone_mode": false,
+        "instruction": "沉稳老练的年长男声，语速平缓，语气郑重。",
+        "audio_file": "719477257c995fcb67bda307e08bf341f20fd1775f7cae1c2d2b276a3c28af47.mp3",
+        "audio_label": "Henry 官方预设原声音频",
+        "preview_url": ""
+      }
+    }
+  },
+  "indextts2_settings": {
+    "temperature": 0.8,
+    "top_p": 0.8,
+    "top_k": 30,
+    "num_beams": 3,
+    "emo_alpha": 1.0
+  }
+}

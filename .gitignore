@@ -1,0 +1,67 @@
+# ==========================================
+# TalkToYou 安全与隐私防护 Ignore 规则
+# ==========================================
+
+# 1. 核心安全私钥与凭证 (绝对禁止提交！)
+.secret_key
+runninghub_config.json
+*.key
+*.pem
+*.env
+*.env.*
+
+# 2. 临时测试音频与输出目录 (避免仓库臃肿与个人语音泄露)
+output/
+outputs/
+voices/customs/*
+!voices/customs/.gitkeep
+*.wav
+*.silk
+*.mp3
+*.flac
+*.m4a
+*.ogg
+
+# 允许预设音色库被跟踪（若有官方自带默认音频）
+!voices/emotions/*
+!voices/presets/*
+
+# 3. Python 运行时与编译缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 4. 临时调试脚本与日志
+scratch_*.py
+debug_*.py
+run_test.py
+verify_asr.py
+*.log
+logs/
+
+# 5. IDE、编辑器与系统临时文件
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,3376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TalkToYou - AI语音第二人代发系统</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.02); }
+    }
+    .voice-bubble {
+      background: linear-gradient(135deg, #07c160 0%, #05a050 100%);
+    }
+    .audio-scrubber {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 9999px;
+      background: #e2e8f0;
+      outline: none;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .audio-scrubber:hover {
+      background: #cbd5e1;
+    }
+    .audio-scrubber::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(37, 99, 235, 0.4);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    .audio-scrubber::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.6);
+    }
+    .audio-scrubber::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(37, 99, 235, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+  <!-- 顶部导航栏 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+          <i class="fa-solid fa-microphone-lines text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">TalkToYou</h1>
+          <p class="text-xs text-slate-400">真人语音转换 & 第二人QQ语音代发</p>
+        </div>
+      </div>
+
+      <!-- 状态与设置区 -->
+      <div class="flex items-center space-x-2.5">
+        <!-- RunningHub 云端算力胶囊 -->
+        <button onclick="openRunningHubModal()" id="rhStatusPill" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 text-purple-700 border border-purple-200/90 transition shadow-2xs" title="点击配置 RunningHub API 与云端工作流">
+          <i class="fa-solid fa-cloud text-purple-600"></i>
+          <span id="rhStatusText">RunningHub 算力云</span>
+        </button>
+
+        <!-- 机器人连接状态 -->
+        <div id="botStatusPill" class="flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
+          <span class="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></span>
+          <span id="botStatusText">正在检测 QQ 机器人...</span>
+        </div>
+        <button onclick="openConfigModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition" title="配置 NapCat 连接">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容容器 -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+    
+    <!-- 左侧：主要发送区 (7列) -->
+    <div class="lg:col-span-7 space-y-6">
+      
+      <!-- 文本输入与主控卡片 -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80">
+        <div class="flex flex-wrap items-center justify-between mb-3 gap-2">
+          <label class="block text-sm font-semibold text-slate-700">
+            <i class="fa-regular fa-comment-dots mr-1.5 text-blue-500"></i> 输入你想说的话
+          </label>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <!-- 语音转文字 -->
+            <button type="button" onclick="openAsrModal()" class="px-2.5 py-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium rounded-lg border border-indigo-200/80 flex items-center space-x-1 transition shadow-2xs">
+              <i class="fa-solid fa-microphone text-indigo-500"></i>
+              <span>语音转文字</span>
+            </button>
+
+            <!-- 一键粘贴 -->
+            <button type="button" onclick="pasteFromClipboard()" class="px-2.5 py-1 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium rounded-lg border border-slate-200 flex items-center space-x-1 transition shadow-2xs" title="从剪贴板一键粘贴">
+              <i class="fa-regular fa-paste text-slate-500"></i>
+              <span>一键粘贴</span>
+            </button>
+
+            <!-- 一键复制 -->
+            <button type="button" onclick="copyInputText()" class="px-2.5 py-1 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium rounded-lg border border-slate-200 flex items-center space-x-1 transition shadow-2xs" title="一键复制当前输入文字">
+              <i class="fa-regular fa-copy text-slate-500"></i>
+              <span>一键复制</span>
+            </button>
+
+            <!-- 清空 -->
+            <button type="button" onclick="clearInputText()" class="px-2 py-1 text-xs text-slate-400 hover:text-rose-600 transition" title="清空文本框">
+              <i class="fa-regular fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- BreezeTTS2 专属：多角色台词剧本快捷助手 (切换到 BreezeTTS2 时自动显示) -->
+        <div id="breezeScriptBar" class="hidden mb-2.5 p-2.5 bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-sky-50/80 rounded-xl border border-blue-200/70 flex flex-col gap-2 text-xs">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
+              <span class="font-bold text-blue-900 flex items-center space-x-1">
+                <i class="fa-solid fa-masks-theater text-indigo-500"></i>
+                <span>角色前缀:</span>
+              </span>
+              <div id="breezeTagButtons" class="flex items-center space-x-1 flex-wrap gap-y-1">
+                <!-- 动态渲染 8 位角色快捷台词标签 -->
+              </div>
+            </div>
+            <div class="flex items-center space-x-1.5 text-[11px]">
+              <button type="button" onclick="insertBreezeDialogTemplate('dual')" class="px-2 py-0.5 bg-white hover:bg-blue-50 text-blue-700 rounded-md border border-blue-200 shadow-2xs font-medium transition">
+                🎭 双人对白
+              </button>
+              <button type="button" onclick="insertBreezeDialogTemplate('multi')" class="px-2 py-0.5 bg-white hover:bg-purple-50 text-purple-700 rounded-md border border-purple-200 shadow-2xs font-medium transition">
+                👥 八人群像
+              </button>
+            </div>
+          </div>
+          <!-- 动作/语气辅助事件标签 (Breeze TTS 2 原生支持) -->
+          <div class="flex items-center space-x-1.5 flex-wrap gap-y-1 pt-1.5 border-t border-blue-100/70 text-[11px]">
+            <span class="font-bold text-slate-600 flex items-center space-x-1">
+              <i class="fa-solid fa-face-smile text-amber-500"></i>
+              <span>辅助动作事件:</span>
+            </span>
+            <button type="button" onclick="insertBreezeEventTag('[笑]')" class="px-1.5 py-0.5 bg-white hover:bg-amber-50 text-amber-700 rounded border border-amber-200 shadow-2xs font-semibold transition" title="插入笑声">[笑]</button>
+            <button type="button" onclick="insertBreezeEventTag('[叹气]')" class="px-1.5 py-0.5 bg-white hover:bg-slate-100 text-slate-700 rounded border border-slate-200 shadow-2xs font-semibold transition" title="插入叹气">[叹气]</button>
+            <button type="button" onclick="insertBreezeEventTag('[清嗓子]')" class="px-1.5 py-0.5 bg-white hover:bg-indigo-50 text-indigo-700 rounded border border-indigo-200 shadow-2xs font-semibold transition" title="插入清嗓子">[清嗓子]</button>
+            <button type="button" onclick="insertBreezeEventTag('[咳嗽]')" class="px-1.5 py-0.5 bg-white hover:bg-rose-50 text-rose-700 rounded border border-rose-200 shadow-2xs font-semibold transition" title="插入咳嗽">[咳嗽]</button>
+            <button type="button" onclick="insertBreezeEventTag('[喘息]')" class="px-1.5 py-0.5 bg-white hover:bg-orange-50 text-orange-700 rounded border border-orange-200 shadow-2xs font-semibold transition" title="插入急促喘息">[喘息]</button>
+            <button type="button" onclick="insertBreezeEventTag('[抽泣]')" class="px-1.5 py-0.5 bg-white hover:bg-cyan-50 text-cyan-700 rounded border border-cyan-200 shadow-2xs font-semibold transition" title="插入抽泣声">[抽泣]</button>
+            <span class="text-[10px] text-slate-400 ml-1">（点击即在光标处插入生理细节声音）</span>
+          </div>
+        </div>
+
+        <textarea id="textInput" rows="5" placeholder="在此输入文字，转换成真实嗓音，并以第二人身份发到目标QQ账号..."
+          class="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none text-slate-700 text-sm leading-relaxed transition"></textarea>
+        
+        <div class="flex justify-between items-center mt-2 text-xs text-slate-400">
+          <div class="flex items-center space-x-2">
+            <span>快捷填充:</span>
+            <button onclick="fillExample('今天记得按时吃晚饭，外面降温了多穿件衣服哦。')" class="text-blue-600 hover:underline">日常问候</button>
+            <span class="text-slate-300">|</span>
+            <button onclick="fillExample('喂，手头的事处理完了吗？等下一起去打球！')" class="text-blue-600 hover:underline">相约闲聊</button>
+          </div>
+          <span id="charCount">0 字</span>
+        </div>
+
+        <!-- 本地/单角色音色选择 (仅在非多角色模式下展示) -->
+        <div class="mt-5 pt-5 border-t border-slate-100" id="localVoiceSection">
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-sm font-semibold text-slate-700">
+              <i class="fa-solid fa-wand-magic-sparkles mr-1.5 text-indigo-500"></i> 选择发音音色
+            </label>
+            <button onclick="switchTab('customVoiceTab')" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+              + 添加新的自定义音色
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="voiceSelectorContainer">
+            <!-- 动态渲染音色列表 -->
+          </div>
+        </div>
+
+        <!-- AI 语音引擎切换与情感控制区 -->
+        <div class="mt-5 pt-4 border-t border-slate-100 space-y-4">
+          <!-- RunningHub 云端工作流切换与控制条 -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-blue-50/70 p-3 rounded-2xl border border-indigo-100/90 shadow-2xs">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-bold text-indigo-950 flex items-center space-x-1.5">
+                <i class="fa-solid fa-cloud text-purple-600"></i>
+                <span>RunningHub 云端工作流:</span>
+              </span>
+              <span class="text-[10px] bg-purple-100/80 text-purple-700 px-2 py-0.5 rounded-full font-bold flex items-center space-x-1">
+                <i class="fa-solid fa-bolt text-amber-500"></i>
+                <span>0本地显存</span>
+              </span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <div class="flex bg-white p-1 rounded-xl border border-indigo-100 text-xs font-semibold space-x-1 shadow-2xs">
+                <button id="wfIndexBtn" type="button" onclick="switchRunningHubWorkflow('2113835289022435330')" 
+                  class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs font-bold transition">
+                  🎭 IndexTTS2 旗舰情感
+                </button>
+                <button id="wfBreezeBtn" type="button" onclick="switchRunningHubWorkflow('2113847965285941250')" 
+                  class="px-3.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition">
+                  👥 BreezeTTS2 多角色
+                </button>
+              </div>
+              <button type="button" onclick="openRunningHubModal()" title="RunningHub API 与工作流配置"
+                class="p-2 text-xs bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-100 rounded-xl shadow-2xs transition">
+                <i class="fa-solid fa-gear"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- BreezeTTS2 专属：8位人设声律工作台与深度参数调控 (切换到 2113847965285941250 时展示) -->
+          <div id="breezeSection" class="hidden p-4 bg-gradient-to-br from-blue-50/80 via-indigo-50/50 to-sky-50/70 rounded-2xl border border-blue-200/80 space-y-4 shadow-2xs">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-100/80 pb-3">
+              <div>
+                <span class="text-xs font-bold text-blue-950 flex items-center space-x-2">
+                  <i class="fa-solid fa-users-gear text-blue-600 text-sm"></i>
+                  <span class="text-sm font-extrabold">BreezeTTS2 多角色声律工作台</span>
+                  <span class="text-[10px] bg-blue-100/90 text-blue-800 px-2 py-0.5 rounded-full font-bold">8位声优独立配置</span>
+                </span>
+                <p class="text-[11px] text-slate-500 mt-0.5">
+                  工作流内嵌 8 位角色，支持独立设定<strong>角色名</strong>、<strong>声音特点文本描述</strong>或<strong>克隆音色模式</strong>（可上传本地音频/挑选预设音色库）。
+                </p>
+              </div>
+              <div class="flex items-center space-x-2">
+                <label class="text-xs text-blue-900 flex items-center space-x-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-blue-200 shadow-2xs hover:border-blue-300 transition">
+                  <input type="checkbox" id="breezeHighPrecisionCheckbox" onchange="toggleBreezePrecision()" class="rounded text-blue-600 focus:ring-blue-500">
+                  <span class="font-semibold">高精度模式 (bf16)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 8 角色选择卡片网格 -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between text-xs text-slate-600">
+                <span class="font-bold flex items-center space-x-1">
+                  <span>🎭 选择当前发音人 / 进行角色深度调教：</span>
+                </span>
+                <span class="text-[10px] text-blue-600 font-medium">点击卡片切换角色与编辑参数</span>
+              </div>
+              <div id="breezeSpeakersGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <!-- JS 动态渲染 8 位角色卡片 -->
+              </div>
+            </div>
+
+            <!-- 当前选中角色的精细化参数调节面板 (Deep Tuning Studio) -->
+            <div id="breezeDetailCard" class="bg-white p-4 rounded-xl border border-blue-200 shadow-2xs space-y-3.5 transition">
+              <!-- 动态由 renderBreezeDetailEditor 渲染 -->
+            </div>
+          </div>
+
+          <!-- 隐藏的本地参考音频上传控件 -->
+          <input type="file" id="breezeLocalAudioInput" accept="audio/*" class="hidden" onchange="handleBreezeLocalAudioUpload(event)">
+
+          <!-- IndexTTS2 专属：情感解耦参考音频与控制区 (切换到 IndexTTS2 时展示) -->
+          <div id="indexEmotionSection" class="hidden p-4 bg-gradient-to-br from-indigo-50/70 to-purple-50/50 rounded-2xl border border-indigo-100/90 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-indigo-900 flex items-center space-x-1.5">
+                <i class="fa-solid fa-heart-pulse text-pink-500"></i>
+                <span>IndexTTS2 专属：情感音频参考 (音色与情绪分离)</span>
+              </span>
+              <span class="text-[10px] text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-full font-medium">B站独家特性</span>
+            </div>
+
+            <!-- 当前所选音色已绑定的情感提示条 (如有) -->
+            <div id="voiceBoundEmotionNotice" class="hidden text-xs bg-pink-50/80 border border-pink-200/70 p-2.5 rounded-xl text-pink-900 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-sparkles text-pink-500"></i>
+                <span>当前音色自带专属情感: <strong id="voiceBoundEmotionTitle" class="text-pink-700 font-bold">默认</strong></span>
+              </div>
+              <span class="text-[10px] bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full font-semibold">自动生效</span>
+            </div>
+
+            <!-- 情感控制模式选择 -->
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <label class="flex items-center space-x-2 p-2.5 bg-white rounded-xl border border-indigo-100 cursor-pointer shadow-2xs hover:border-indigo-300 transition">
+                <input type="radio" name="emotionMode" value="audio" checked onchange="toggleEmotionInput()" class="text-indigo-600 focus:ring-indigo-500">
+                <span class="font-medium text-slate-700">🎧 垫入情感参考音频</span>
+              </label>
+              <label class="flex items-center space-x-2 p-2.5 bg-white rounded-xl border border-indigo-100 cursor-pointer shadow-2xs hover:border-indigo-300 transition">
+                <input type="radio" name="emotionMode" value="text" onchange="toggleEmotionInput()" class="text-indigo-600 focus:ring-indigo-500">
+                <span class="font-medium text-slate-700">✍️ 自然语言情感描述</span>
+              </label>
+            </div>
+
+            <!-- 模式A: 独立情感参考音频 (选择已存预设或上传新文件) -->
+            <div id="emotionAudioBox" class="space-y-2 bg-white p-3 rounded-xl border border-indigo-100/80 text-xs">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">
+                  选择情感参考来源：
+                </label>
+                <select id="savedEmotionSelect" onchange="onSavedEmotionChanged()" 
+                  class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-400 bg-slate-50/50">
+                  <option value="voice_bound">⚡ 优先使用当前音色已绑定的专属情感 (如有)</option>
+                  <!-- 动态插入预设库中的情感项 -->
+                  <option value="custom_upload">➕ 上传新录音文件并可一键保存复用...</option>
+                </select>
+              </div>
+
+              <!-- 上传与快速保存区域 (仅当选择 custom_upload 时展开，或可手动展开) -->
+              <div id="emotionUploadSubBox" class="hidden pt-2 border-t border-slate-100 space-y-2">
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                  上传一段包含强烈情绪的音频（哭腔/撒娇/生气），人物将以自己的音色<strong>复刻该情绪与语调</strong>：
+                </p>
+                <input type="file" id="emotionAudioFile" accept="audio/*"
+                  class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+                
+                <div class="flex items-center space-x-2 pt-1">
+                  <input type="text" id="newEmotionPresetName" placeholder="为此情感起个名字 (如：娇嗔撒娇)"
+                    class="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+                  <button type="button" onclick="saveCurrentEmotionAsPreset()"
+                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-xs transition flex items-center space-x-1 shrink-0">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>保存到常用预设</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 模式B: 情绪风格与描述引导 -->
+            <div id="emotionTextBox" class="hidden space-y-2.5 bg-white p-3.5 rounded-xl border border-indigo-100/80 shadow-2xs">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-bold text-slate-700">
+                  🎭 情绪风格选择 (一键直达或自定义描述)：
+                </label>
+                <span id="activeEmotionTag" class="text-[10px] text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full font-medium hidden">
+                  已选情绪
+                </span>
+              </div>
+
+              <!-- 常用情绪预设胶囊快速点选 -->
+              <div class="grid grid-cols-4 gap-1.5 text-xs">
+                <button type="button" onclick="selectEmotionPreset('coquettish', '撒娇卖萌 / 甜美娇嗔')"
+                  id="emoBtn_coquettish"
+                  class="emo-pill-btn px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-pink-50 hover:border-pink-300 hover:text-pink-700 transition text-center font-medium text-[11px] truncate">
+                  🥰 撒娇甜美
+                </button>
+                <button type="button" onclick="selectEmotionPreset('crying', '伤心哭腔 / 悲痛哽咽')"
+                  id="emoBtn_crying"
+                  class="emo-pill-btn px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition text-center font-medium text-[11px] truncate">
+                  😭 伤心哭腔
+                </button>
+                <button type="button" onclick="selectEmotionPreset('angry', '暴躁愤怒 / 严厉质问')"
+                  id="emoBtn_angry"
+                  class="emo-pill-btn px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-700 transition text-center font-medium text-[11px] truncate">
+                  😡 暴躁愤怒
+                </button>
+                <button type="button" onclick="selectEmotionPreset('melancholic', '委屈可怜 / 失落低落')"
+                  id="emoBtn_melancholic"
+                  class="emo-pill-btn px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 transition text-center font-medium text-[11px] truncate">
+                  🥺 委屈低落
+                </button>
+                <button type="button" onclick="selectEmotionPreset('surprised', '震惊诧异 / 难以置信')"
+                  id="emoBtn_surprised"
+                  class="emo-pill-btn px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition text-center font-medium text-[11px] truncate">
+                  😲 震惊吃惊
+                </button>
+                <button type="button" onclick="selectEmotionPreset('fearful', '恐惧慌张 / 战战兢兢')"
+                  id="emoBtn_fearful"
+                  class="emo-pill-btn px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition text-center font-medium text-[11px] truncate">
+                  😨 恐惧慌张
+                </button>
+                <button type="button" onclick="selectEmotionPreset('disgusted', '嫌弃反感 / 鄙视傲慢')"
+                  id="emoBtn_disgusted"
+                  class="emo-pill-btn px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700 transition text-center font-medium text-[11px] truncate">
+                  🙄 嫌弃反感
+                </button>
+                <button type="button" onclick="selectEmotionPreset('calm', '平静自然 / 日常随性')"
+                  id="emoBtn_calm"
+                  class="emo-pill-btn px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition text-center font-medium text-[11px] truncate">
+                  😐 平静自然
+                </button>
+              </div>
+
+              <!-- 输入框与情绪浓度滑块 -->
+              <div class="space-y-2 pt-1 border-t border-slate-100">
+                <input type="text" id="emotionPromptText" placeholder="可直接输入口吻描述，如：撒娇甜美、委屈哭腔、特别生气、轻声呢喃..."
+                  class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-400"
+                  oninput="onEmotionPromptInput()">
+                
+                <div class="flex items-center justify-between bg-slate-50/80 px-2.5 py-1.5 rounded-lg text-xs">
+                  <span class="text-slate-500 text-[11px]">情绪浓度：</span>
+                  <input id="emotionIntensityRange" type="range" min="50" max="150" step="10" value="100"
+                    class="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    oninput="document.getElementById('emotionIntensityVal').innerText = (this.value / 100).toFixed(1) + 'x'">
+                  <span id="emotionIntensityVal" class="text-indigo-600 font-bold text-[11px] w-8 text-right">1.0x</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 广播级 WSOLA 语速微调 -->
+          <div class="bg-slate-50/90 p-3 rounded-xl border border-slate-200/80 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-slate-700">语速调节 (WSOLA 原声时域拉伸):</span>
+                <span id="speedVal" class="text-xs font-extrabold text-blue-600">标准语速 (0%)</span>
+              </div>
+              <span class="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">
+                无回音 · 无重音 · 吐字清晰
+              </span>
+            </div>
+            <div class="flex items-center space-x-3">
+              <span class="text-[11px] text-slate-400 shrink-0">慢速 -40%</span>
+              <input id="speedRange" type="range" min="-40" max="40" step="5" value="0"
+                class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                oninput="updateSpeedDisplay(this.value)">
+              <span class="text-[11px] text-slate-400 shrink-0">快速 +40%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 目标设置与发送控制区 -->
+        <div class="mt-6 pt-5 border-t border-slate-100 space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-slate-700 flex items-center space-x-1.5">
+              <i class="fa-brands fa-qq text-sky-500"></i>
+              <span>接收目标与类型:</span>
+            </label>
+            <!-- 目标类型切换 (私聊/群聊) -->
+            <div class="flex bg-slate-100 p-0.5 rounded-lg text-xs font-semibold">
+              <button id="targetTypePrivateBtn" type="button" onclick="setTargetType('private')"
+                class="px-3 py-1 rounded-md bg-white text-blue-600 shadow-2xs transition">
+                👤 好友私聊
+              </button>
+              <button id="targetTypeGroupBtn" type="button" onclick="setTargetType('group')"
+                class="px-3 py-1 rounded-md text-slate-500 hover:text-slate-800 transition">
+                👥 QQ 群聊
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+            <div class="sm:col-span-6 space-y-1.5">
+              <div class="relative">
+                <input type="number" id="targetQQ" placeholder="输入接收好友 QQ 号" list="joinedGroupsList"
+                  class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
+                <datalist id="joinedGroupsList"></datalist>
+              </div>
+              <div id="groupQuickSelectWrap" class="hidden flex items-center space-x-1.5 text-xs text-slate-500">
+                <span class="shrink-0 text-[11px] text-slate-400">已加群聊:</span>
+                <select id="groupQuickSelect" onchange="if(this.value){document.getElementById('targetQQ').value=this.value;}"
+                  class="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none bg-slate-50 text-slate-600 truncate">
+                  <option value="">-- 点击选择小号已加入的群聊 --</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="sm:col-span-6 flex space-x-2">
+              <!-- 试听按钮 (生成并加列表) -->
+              <button id="previewBtn" onclick="handlePreview()" 
+                class="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-sm transition flex items-center justify-center space-x-1.5 border border-slate-200">
+                <i class="fa-solid fa-volume-high text-slate-500"></i>
+                <span>生成并加入试听</span>
+              </button>
+              
+              <!-- 直接发送按钮 -->
+              <button id="sendBtn" onclick="handleSend()" 
+                class="flex-1 py-2.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-xl text-sm shadow-md shadow-blue-500/25 transition flex items-center justify-center space-x-1.5">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>生成并立即发送</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 合成动态进度条卡片 (合成时显示) -->
+      <div id="synthesisProgressCard" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-indigo-100 space-y-3 transition-all animate-fade-in">
+        <div class="flex items-center justify-between text-xs">
+          <div class="flex items-center space-x-2 font-semibold text-slate-700">
+            <span class="relative flex h-2.5 w-2.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
+            </span>
+            <span id="synthStageText">正在准备声学特征与分词...</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span id="synthEngineBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">CosyVoice</span>
+            <span id="synthTimer" class="font-mono text-slate-500 font-medium">⏱️ 0.0s</span>
+          </div>
+        </div>
+
+        <!-- 进度条轨道 -->
+        <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-200/80">
+          <div id="synthProgressBar" class="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-full transition-all duration-300 w-0 relative">
+            <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center text-[11px] text-slate-400">
+          <span>当前阶段: <span id="synthStepName" class="text-slate-600 font-medium">声学生成推理中</span></span>
+          <span id="synthPercentText" class="font-bold text-blue-600">0%</span>
+        </div>
+      </div>
+
+      <!-- 生成结果与试听发送列表卡片 (避免重复生成，点击直接发送) -->
+      <div id="resultsCard" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-3 transition-all">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div class="flex items-center space-x-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">已生成音频列表 (支持进度拖动 · 点击右侧发送无需再次生成)</h3>
+          </div>
+          <span id="resultsCountBadge" class="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">0 条</span>
+        </div>
+
+        <div id="resultsList" class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+          <!-- 动态渲染生成结果列表 -->
+        </div>
+
+        <audio id="globalAudioPlayer" class="hidden"></audio>
+      </div>
+
+    </div>
+
+    <!-- 右侧：音色管理与添加区 (5列) -->
+    <div class="lg:col-span-5 space-y-6">
+      
+      <!-- 音色管理卡片 -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+          <div class="flex space-x-4">
+            <button id="tabPresetBtn" onclick="switchTab('presetVoiceTab')" class="text-sm font-bold text-blue-600 border-b-2 border-blue-600 pb-1">
+              预设音色库
+            </button>
+            <button id="tabCustomBtn" onclick="switchTab('customVoiceTab')" class="text-sm font-bold text-slate-400 hover:text-slate-600 pb-1">
+              + 添加自定义音色
+            </button>
+          </div>
+        </div>
+
+        <!-- 选项卡 1: 音色详情库 -->
+        <div id="presetVoiceTab" class="space-y-3">
+          <p class="text-xs text-slate-400 mb-2">已加载的音色角色（包含系统预置与用户自定义声音）：</p>
+          <div id="allVoicesList" class="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+            <!-- 动态填充 -->
+          </div>
+        </div>
+
+        <!-- 选项卡 2: 新增自定义音色表单 -->
+        <div id="customVoiceTab" class="hidden space-y-4">
+          <div class="bg-blue-50/60 p-3 rounded-xl border border-blue-100 text-xs text-blue-800 leading-relaxed">
+            <i class="fa-solid fa-circle-info mr-1"></i>
+            <strong>声音克隆提示</strong>：只需上传一段 <strong>3~10 秒</strong> 任意人物的清晰无杂音人声（手机录音、微信语音导出等），即可保存为专属的预设发音人！
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">音色名称 <span class="text-red-500">*</span></label>
+            <input type="text" id="customName" placeholder="例如：我的原声 / 好友小张 / 磁性播客"
+              class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">参考人声音频文件 (WAV / MP3) <span class="text-red-500">*</span></label>
+            <input type="file" id="customAudioFile" accept="audio/*"
+              class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">参考音频所说的台词内容 (选填)</label>
+            <input type="text" id="customPromptText" placeholder="该录音里人物具体说了什么（可辅助提升音准）"
+              class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">音色描述 / 备注</label>
+            <input type="text" id="customDesc" placeholder="简短描述音色特质（如：欢快、严肃、低沉）"
+              class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+
+          <!-- 专属情感参考音频 (IndexTTS2 专属，永久绑定复用) -->
+          <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100/90 space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-bold text-indigo-900">
+                <i class="fa-solid fa-heart-pulse text-pink-500 mr-1"></i> 专属情感参考音频 (选填，IndexTTS2 专属)
+              </label>
+              <span class="text-[10px] text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded font-medium">永久保存复用</span>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-relaxed">
+              为此音色绑定一段专属情绪音频（如撒娇、哭腔、语气），日后使用 IndexTTS2 时将<strong>默认自动加载并演出该情绪</strong>，无需每次重新上传！
+            </p>
+            <input type="file" id="customEmotionFile" accept="audio/*"
+              class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 cursor-pointer">
+            <input type="text" id="customEmotionName" placeholder="情感备注 (例如：自然撒娇 / 严肃冷漠)"
+              class="w-full px-2.5 py-1.5 border border-indigo-100 rounded-lg text-xs focus:ring-1 focus:ring-indigo-400 outline-none bg-white">
+          </div>
+
+          <button id="saveVoiceBtn" onclick="handleCreateVoice()"
+            class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-sm transition shadow-sm flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>保存并添加该音色</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- NapCat QQ 说明卡片 -->
+      <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-slate-200 rounded-2xl p-6 shadow-sm">
+        <h3 class="text-sm font-bold text-white flex items-center space-x-2 mb-2">
+          <i class="fa-brands fa-qq text-sky-400"></i>
+          <span>第二人 QQ 发送原理说明</span>
+        </h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+          系统通过调用本地运行的 <strong>NapCatQQ</strong>（OneBot11 标准协议），将合成的音频重采样为 24000Hz PCM 并经过 <strong>Tencent Silk v3</strong> 专属编码，直接向你的好友投递原生的<strong>绿色语音气泡</strong>。
+        </p>
+        <div class="text-xs bg-slate-800/80 p-3 rounded-xl border border-slate-700 space-y-1 text-slate-300">
+          <div>• <strong>当前 OneBot 端口</strong>: <span class="text-sky-400 font-mono">127.0.0.1:3000</span></div>
+          <div>• <strong>QQ 小号要求</strong>: 需在 NapCat 登录任意一个正常的 QQ 号</div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- NapCatQQ 深度集成与扫码中控弹窗 -->
+  <div id="configModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <!-- 弹窗标题 -->
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white flex items-center justify-center text-base shadow-sm">
+            <i class="fa-brands fa-qq"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800">NapCatQQ 机器人中控台</h3>
+            <p class="text-[11px] text-slate-400">一键进程托管 · 网页原生扫码 · 多端状态感知</p>
+          </div>
+        </div>
+        <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 transition p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- 模块1：NapCat 守护进程监控 -->
+      <div class="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div id="napcatProcDot" class="w-3.5 h-3.5 rounded-full bg-slate-300"></div>
+          <div>
+            <div id="napcatProcTitle" class="text-xs font-bold text-slate-700">NapCat 守护进程状态</div>
+            <div id="napcatProcSub" class="text-[11px] text-slate-400">检测中...</div>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="btnStartNapCat" onclick="startNapCatDaemon()"
+            class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-xs flex items-center space-x-1">
+            <i class="fa-solid fa-play text-[10px]"></i>
+            <span>启动服务</span>
+          </button>
+          <button id="btnRestartNapCat" onclick="restartNapCatDaemon()" title="重启 NapCat"
+            class="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold transition">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+          <button id="btnStopNapCat" onclick="stopNapCatDaemon()" title="停止 NapCat"
+            class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-semibold transition">
+            <i class="fa-solid fa-power-off"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 模块2：QQ 账号与扫码登录卡片 -->
+      <div id="napcatLoginBox" class="bg-white rounded-2xl p-4 border border-indigo-100 shadow-2xs space-y-3.5">
+        <!-- A: 已登录状态卡片 -->
+        <div id="qqLoginedView" class="hidden space-y-3">
+          <div class="flex items-center space-x-3.5 p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50/60 border border-emerald-100 rounded-2xl shadow-xs">
+            <img id="qqUserAvatar" src="" style="width: 56px; height: 56px; min-width: 56px; min-height: 56px;" class="w-14 h-14 min-w-[56px] max-w-[56px] min-h-[56px] max-h-[56px] rounded-full border-2 border-white shadow-md object-cover shrink-0" onerror="this.src='https://q1.qlogo.cn/g?b=qq&nk=10000&s=640'">
+            <div class="flex-1 min-w-0 space-y-0.5">
+              <div class="flex items-center space-x-2">
+                <span id="qqUserNick" class="font-bold text-slate-800 text-sm truncate">小号昵称</span>
+                <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>在线就绪</span>
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 font-mono">QQ: <span id="qqUserUin" class="font-semibold text-slate-700">--</span></p>
+              <p class="text-[11px] text-emerald-600 flex items-center space-x-1 pt-0.5">
+                <i class="fa-solid fa-circle-check text-[10px]"></i>
+                <span>OneBot 通信已打通 · 可直接代发 Silk 绿色语音条</span>
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-1 px-1">
+            <span class="text-[11px] text-slate-400">如需切换或刷新账号：</span>
+            <button onclick="triggerReQRLogin()" class="px-3 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 border border-indigo-200 rounded-xl font-medium transition flex items-center space-x-1">
+              <i class="fa-solid fa-qrcode text-[11px]"></i>
+              <span>重新扫码切换</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- B: 扫码等待状态卡片 -->
+        <div id="qqQrView" class="hidden text-center py-2 space-y-3">
+          <!-- 智能电脑端 QQ 互斥须知与人性化指引 -->
+          <div class="text-left bg-blue-50/80 border border-blue-100 rounded-2xl p-3 space-y-1.5 text-xs">
+            <div class="flex items-center space-x-1.5 font-bold text-blue-900">
+              <i class="fa-solid fa-circle-info text-blue-600"></i>
+              <span>手机 QQ 扫码操作指引</span>
+            </div>
+            <p class="text-[11px] text-blue-800/90 leading-relaxed">
+              腾讯协议严格限制<strong>同一电脑不能同时登录两个相同 QQ 号的 PC 端</strong>：
+            </p>
+            <div class="space-y-1 text-[11px] text-slate-600 bg-white/90 p-2.5 rounded-xl border border-blue-100/70">
+              <div>💡 <strong>推荐方式（极力推荐）</strong>：用手机扫码登录<strong>专属机器人小号</strong>，大号和小号互通语音，两边完全不冲突。</div>
+              <div>💡 <strong>登录当前主号</strong>：若想让主号当代发机器人，需先<strong>退出电脑桌面右下角官方 QQ</strong>，再扫码授权。</div>
+            </div>
+          </div>
+
+          <div class="inline-block p-2 bg-white rounded-2xl border-2 border-indigo-100 shadow-md">
+            <img id="qqQrImg" src="" class="w-44 h-44 rounded-xl object-contain mx-auto" alt="QQ登录二维码">
+          </div>
+          <div class="space-y-1">
+            <div id="qqQrStatusText" class="text-xs font-bold text-slate-700">📱 请使用手机 QQ 扫描上方二维码登录机器人小号</div>
+            <p class="text-[11px] text-slate-400">扫码后在手机端点击【允许登录】即可，系统将自动同步</p>
+          </div>
+
+          <!-- 刷新二维码 -->
+          <div class="flex items-center justify-center pt-1">
+            <button onclick="refreshNapCatQR()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 shadow-2xs">
+              <i class="fa-solid fa-rotate text-xs"></i>
+              <span>刷新二维码</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- C: NapCat 未运行引导卡片 -->
+        <div id="qqStoppedView" class="hidden text-center py-5 space-y-3">
+          <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto text-xl">
+            <i class="fa-solid fa-plug-circle-xmark"></i>
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-slate-700">NapCatQQ 守护进程尚未启动</h4>
+            <p class="text-[11px] text-slate-400 mt-1">无需打开文件夹找脚本，直接点击下方按钮即可一键后台拉起！</p>
+          </div>
+          <button onclick="startNapCatDaemon()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-md shadow-blue-500/20">
+            🚀 立即静默拉起 NapCat
+          </button>
+        </div>
+      </div>
+
+      <!-- 模块3：高级 OneBot 连接配置 (折叠面板) -->
+      <details class="text-xs border border-slate-100 rounded-xl overflow-hidden bg-slate-50/50">
+        <summary class="px-3 py-2 font-medium text-slate-500 cursor-pointer hover:text-slate-800 transition select-none flex items-center justify-between">
+          <span>⚙️ 高级连接参数 (OneBot 端口与 Token)</span>
+          <i class="fa-solid fa-chevron-down text-[10px]"></i>
+        </summary>
+        <div class="p-3 border-t border-slate-100 bg-white space-y-2.5">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">OneBot HTTP 地址</label>
+            <input type="text" id="onebotUrl" value="http://127.0.0.1:3000"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Access Token (若未设置可留空)</label>
+            <input type="text" id="onebotToken" placeholder="如在 napcat 中配置了 token 则填入"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+          </div>
+          <div class="flex justify-end pt-1">
+            <button onclick="saveBotConfig()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium transition">
+              保存配置
+            </button>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- RunningHub 云端算力中枢配置 Modal -->
+  <div id="runninghubModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
+      <!-- 标题 -->
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center text-base shadow-sm">
+            <i class="fa-solid fa-cloud"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800">RunningHub 云端算力配置</h3>
+            <p class="text-[11px] text-slate-400">Serverless GPU · 0本地显存 · 自由双工作流切换</p>
+          </div>
+        </div>
+        <button onclick="closeRunningHubModal()" class="text-slate-400 hover:text-slate-600 transition p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- 密钥别名与私密保护 -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-bold text-slate-700 flex items-center justify-between">
+          <span>🏷️ 密钥别名 / 归属账号</span>
+          <span class="text-[10px] text-slate-400 font-normal">用于多账号快速辨识</span>
+        </label>
+        <input type="text" id="rhKeyNameInput" placeholder="例如：主账号 - runninghub001@outlook.com"
+          class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none">
+      </div>
+
+      <!-- API Key 配置 & 连通性检测 -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-bold text-slate-700 flex items-center justify-between">
+          <span>🔑 RunningHub API Key</span>
+          <span class="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-mono font-medium border border-emerald-200/60">
+            <i class="fa-solid fa-shield-halved mr-1"></i>AES-Fernet 密文加密存储
+          </span>
+        </label>
+        <div class="flex space-x-2">
+          <input type="password" id="rhApiKeyInput" placeholder="输入 RunningHub 开放接口 API Key"
+            class="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none">
+          <button type="button" onclick="toggleApiKeyVisibility()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs transition" title="显示/隐藏密钥">
+            <i id="rhKeyEyeIcon" class="fa-solid fa-eye"></i>
+          </button>
+          <button type="button" id="btnTestConn" onclick="testRunningHubConnection()" class="px-3.5 py-2 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shrink-0 shadow-2xs">
+            <i class="fa-solid fa-bolt"></i>
+            <span>连通性检测</span>
+          </button>
+        </div>
+        <div id="rhConnStatus" class="hidden text-[11px] p-2.5 rounded-xl border mt-1.5"></div>
+        <p class="text-[10px] text-slate-400">本地已硬件私钥密文存储，前端仅掩码脱敏回显。可在 RunningHub 官网【个人中心】获取。</p>
+      </div>
+
+      <!-- 激活的工作流选择 -->
+      <div class="space-y-2 pt-2 border-t border-slate-100">
+        <label class="block text-xs font-bold text-slate-700">当前激活工作流</label>
+        <div class="grid grid-cols-1 gap-2.5">
+          <!-- 工作流1 -->
+          <div onclick="selectModalWorkflow('2113835289022435330')" id="modalWfCard_2113835289022435330"
+            class="p-3.5 rounded-2xl border-2 border-purple-500 bg-purple-50/50 cursor-pointer transition flex items-start justify-between">
+            <div class="space-y-1">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-slate-800">🎭 IndexTTS2 旗舰情感工作流</span>
+                <span class="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">2113835289022435330</span>
+              </div>
+              <p class="text-[11px] text-slate-500">B站开源旗舰情感解耦模型，支持自然语言情感描述与情绪向量控制。</p>
+            </div>
+            <i class="fa-solid fa-circle-check text-purple-600 text-base modalWfCheck"></i>
+          </div>
+
+          <!-- 工作流2 -->
+          <div onclick="selectModalWorkflow('2113847965285941250')" id="modalWfCard_2113847965285941250"
+            class="p-3.5 rounded-2xl border-2 border-slate-200 bg-white hover:border-blue-300 cursor-pointer transition flex items-start justify-between">
+            <div class="space-y-1">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-slate-800">👥 BreezeTTS2 多角色语音工作流</span>
+                <span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">2113847965285941250</span>
+              </div>
+              <p class="text-[11px] text-slate-500">内嵌 Alice、Bob、Carol 等 8 大高拟真声优，支持对话流剧本分角色演绎。</p>
+            </div>
+            <i class="fa-regular fa-circle text-slate-300 text-base modalWfCheck"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 参数微调折叠面板 -->
+      <details class="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs">
+        <summary class="font-bold text-slate-700 cursor-pointer select-none flex items-center justify-between">
+          <span>⚙️ 高级推理参数微调</span>
+          <span class="text-[10px] text-purple-600 font-normal">点击展开</span>
+        </summary>
+        <div class="mt-3 space-y-3 pt-2 border-t border-slate-200/60">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] text-slate-600 mb-1">IndexTTS2 随机度 (Temperature)</label>
+              <input type="number" id="rhTempInput" step="0.05" min="0.1" max="1.5" value="0.8"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-purple-500">
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-600 mb-1">采样候选 (Top-P)</label>
+              <input type="number" id="rhTopPInput" step="0.05" min="0.1" max="1.0" value="0.8"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-purple-500">
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- 底部按钮 -->
+      <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+        <div id="rhSaveTip" class="text-[11px] text-emerald-600 font-semibold hidden">
+          <i class="fa-solid fa-check mr-1"></i>配置已保存并生效
+        </div>
+        <div class="flex space-x-2 ml-auto">
+          <button onclick="closeRunningHubModal()" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition">
+            取消
+          </button>
+          <button onclick="saveRunningHubModalConfig()" class="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
+            保存配置
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 语音识别转文字 Modal -->
+  <div id="asrModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold">
+            <i class="fa-solid fa-microphone-lines"></i>
+          </div>
+          <h3 class="font-bold text-slate-800 text-sm">语音识别转文字 (FunASR SenseVoice)</h3>
+        </div>
+        <button onclick="closeAsrModal()" class="text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- 两种模式：上传音频文件 或 在线麦克风录音 -->
+      <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+        <button id="asrTabUpload" onclick="switchAsrTab('upload')" class="flex-1 py-1.5 rounded-lg bg-white text-indigo-700 shadow-2xs transition">
+          📁 上传音频文件
+        </button>
+        <button id="asrTabRecord" onclick="switchAsrTab('record')" class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
+          🎙️ 麦克风录音
+        </button>
+      </div>
+
+      <!-- Tab A: 上传文件 -->
+      <div id="asrUploadSection" class="space-y-3">
+        <div class="border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/30 rounded-xl p-5 text-center cursor-pointer transition"
+          onclick="document.getElementById('asrFileInput').click()">
+          <i class="fa-solid fa-cloud-arrow-up text-indigo-400 text-2xl mb-1.5"></i>
+          <p class="text-xs font-semibold text-slate-700">点击选择音频文件 或 拖放至此</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">支持 WAV, MP3, M4A, OGG, FLAC, SILK 等格式</p>
+          <input type="file" id="asrFileInput" accept="audio/*" class="hidden" onchange="handleAsrFileSelect(this)">
+        </div>
+        <div id="asrSelectedFileName" class="text-xs text-indigo-600 font-medium truncate hidden"></div>
+      </div>
+
+      <!-- Tab B: 麦克风录音 -->
+      <div id="asrRecordSection" class="hidden space-y-3 text-center py-2">
+        <div class="flex items-center justify-center space-x-3">
+          <button id="asrRecordBtn" onclick="toggleAsrRecording()" class="w-14 h-14 rounded-full bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/30 flex items-center justify-center text-xl transition">
+            <i id="asrRecordIcon" class="fa-solid fa-microphone"></i>
+          </button>
+        </div>
+        <p id="asrRecordStatus" class="text-xs font-medium text-slate-600">点击红色按钮开始录音</p>
+        <div id="asrRecordTimer" class="font-mono text-sm font-bold text-rose-600 hidden">00:00</div>
+      </div>
+
+      <!-- 识别中 Loading 动画 -->
+      <div id="asrLoading" class="hidden text-center py-4 space-y-2">
+        <i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-600"></i>
+        <p class="text-xs font-medium text-slate-600">SenseVoiceSmall 神经网络正在高速识别并恢复标点...</p>
+      </div>
+
+      <!-- 识别结果展示区 -->
+      <div id="asrResultCard" class="hidden space-y-2 pt-1 border-t border-slate-100">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-bold text-slate-700">识别结果：</label>
+          <button onclick="copyAsrText()" class="text-xs text-indigo-600 hover:underline">
+            <i class="fa-regular fa-copy"></i> 复制文字
+          </button>
+        </div>
+        <textarea id="asrResultText" rows="3" class="w-full p-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-800 outline-none resize-none"></textarea>
+        
+        <div class="flex space-x-2 pt-1">
+          <button onclick="applyAsrText('replace')" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition">
+            📌 覆盖输入框
+          </button>
+          <button onclick="applyAsrText('append')" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition">
+            ➕ 追加到末尾
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 全局现代浮动通知 Toast 容器 -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-[999999] flex flex-col space-y-2.5 pointer-events-none max-w-sm w-full"></div>
+
+  <!-- 全局现代确认弹窗 Confirm Modal -->
+  <div id="modernConfirmModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-[999999] flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-start space-x-3.5">
+        <div id="confirmIconBox" class="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg shrink-0">
+          <i id="confirmIcon" class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="flex-1 min-w-0 pt-0.5">
+          <h4 id="confirmTitle" class="text-sm font-bold text-slate-800">操作确认</h4>
+          <p id="confirmMessage" class="text-xs text-slate-500 mt-1 leading-relaxed whitespace-pre-line"></p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+        <button id="confirmCancelBtn" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+          取消
+        </button>
+        <button id="confirmOkBtn" class="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition">
+          确定
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== 现代优雅通知 Toast & Confirm 体系 ====================
+    function showToast(message, type = 'info', duration = 3200) {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+
+      const toast = document.createElement("div");
+      toast.className = "pointer-events-auto flex items-start p-3.5 rounded-2xl shadow-xl border text-xs font-medium space-x-3 transition-all duration-300 transform translate-y-[-10px] opacity-0";
+
+      let icon = "fa-solid fa-circle-info text-blue-500";
+      let bgClass = "bg-white/95 backdrop-blur-md border-blue-100 text-slate-800 shadow-blue-500/10";
+
+      if (type === 'success' || message.includes('成功') || message.includes('🎉') || message.includes('✅')) {
+        icon = "fa-solid fa-circle-check text-emerald-500";
+        bgClass = "bg-white/95 backdrop-blur-md border-emerald-100 text-slate-800 shadow-emerald-500/10";
+      } else if (type === 'error' || message.includes('失败') || message.includes('异常') || message.includes('错误') || message.includes('无法')) {
+        icon = "fa-solid fa-circle-xmark text-rose-500";
+        bgClass = "bg-white/95 backdrop-blur-md border-rose-100 text-slate-800 shadow-rose-500/10";
+      } else if (type === 'warning' || message.includes('⚠️') || message.includes('请') || message.includes('尚未') || message.includes('未检测')) {
+        icon = "fa-solid fa-triangle-exclamation text-amber-500";
+        bgClass = "bg-white/95 backdrop-blur-md border-amber-100 text-slate-800 shadow-amber-500/10";
+      }
+
+      toast.className += " " + bgClass;
+      const cleanMsg = message.replace(/^[✅🎉⚠️ℹ️❌\s]+/, '');
+
+      toast.innerHTML = `
+        <div class="text-base shrink-0 pt-0.5">
+          <i class="${icon}"></i>
+        </div>
+        <div class="flex-1 min-w-0 pr-1 leading-relaxed">
+          ${cleanMsg}
+        </div>
+        <button class="text-slate-400 hover:text-slate-600 transition shrink-0 ml-1 text-base leading-none">&times;</button>
+      `;
+
+      const closeBtn = toast.querySelector("button");
+      closeBtn.onclick = () => removeToast(toast);
+
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove("translate-y-[-10px]", "opacity-0");
+        toast.classList.add("translate-y-0", "opacity-100");
+      });
+
+      let timer = setTimeout(() => removeToast(toast), duration);
+
+      function removeToast(el) {
+        if (!el || !el.parentElement) return;
+        clearTimeout(timer);
+        el.classList.add("opacity-0", "translate-x-4");
+        setTimeout(() => el.remove(), 250);
+      }
+    }
+
+    // 全局重写原生 window.alert 为现代轻量 Toast
+    window.alert = function(msg) {
+      showToast(String(msg));
+    };
+
+    // 现代优雅操作确认框
+    function modernConfirm(msg, title = "操作确认", type = "warning") {
+      return new Promise((resolve) => {
+        const modal = document.getElementById("modernConfirmModal");
+        const msgEl = document.getElementById("confirmMessage");
+        const titleEl = document.getElementById("confirmTitle");
+        const iconEl = document.getElementById("confirmIcon");
+        const iconBox = document.getElementById("confirmIconBox");
+        const okBtn = document.getElementById("confirmOkBtn");
+        const cancelBtn = document.getElementById("confirmCancelBtn");
+
+        titleEl.innerText = title;
+        msgEl.innerText = msg;
+
+        if (type === 'danger') {
+          iconBox.className = "w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg shrink-0";
+          iconEl.className = "fa-solid fa-trash-can";
+          okBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 shadow-sm transition";
+        } else {
+          iconBox.className = "w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg shrink-0";
+          iconEl.className = "fa-solid fa-triangle-exclamation";
+          okBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition";
+        }
+
+        modal.classList.remove("hidden");
+
+        const cleanup = () => {
+          modal.classList.add("hidden");
+          okBtn.onclick = null;
+          cancelBtn.onclick = null;
+        };
+
+        okBtn.onclick = () => {
+          cleanup();
+          resolve(true);
+        };
+        cancelBtn.onclick = () => {
+          cleanup();
+          resolve(false);
+        };
+      });
+    }
+
+    let currentVoices = [];
+    let selectedVoiceId = "";
+    let isPlaying = false;
+    let selectedEmotionKey = null;
+
+    const EMOTION_VECTORS_MAP = {
+      coquettish: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.0],
+      crying: [0.0, 0.0, 1.0, 0.0, 0.0, 0.35, 0.0, 0.0],
+      angry: [0.0, 1.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0],
+      melancholic: [0.0, 0.0, 0.25, 0.0, 0.0, 1.0, 0.0, 0.0],
+      fearful: [0.0, 0.0, 0.0, 1.0, 0.0, 0.1, 0.3, 0.0],
+      surprised: [0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+      disgusted: [0.0, 0.2, 0.0, 0.0, 1.0, 0.0, 0.0, 0.1],
+      calm: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+    };
+
+    function updateSpeedDisplay(val) {
+      val = parseInt(val);
+      const elem = document.getElementById('speedVal');
+      if (!elem) return;
+      if (val === 0) {
+        elem.innerText = "标准语速 (0%)";
+        elem.className = "text-xs font-extrabold text-blue-600";
+      } else if (val < 0) {
+        elem.innerText = `放缓 ${val}% (清晰沉稳)`;
+        elem.className = "text-xs font-extrabold text-amber-600";
+      } else {
+        elem.innerText = `加快 +${val}% (紧凑轻快)`;
+        elem.className = "text-xs font-extrabold text-indigo-600";
+      }
+    }
+
+    function selectEmotionPreset(key, desc) {
+      selectedEmotionKey = key;
+      document.querySelectorAll(".emo-pill-btn").forEach(btn => {
+        btn.className = "emo-pill-btn px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition text-center font-medium text-[11px] truncate";
+      });
+      const activeBtn = document.getElementById(`emoBtn_${key}`);
+      if (activeBtn) {
+        activeBtn.className = "emo-pill-btn px-2 py-1.5 rounded-lg border border-pink-400 bg-pink-100/90 text-pink-700 shadow-2xs transition text-center font-bold text-[11px] truncate ring-2 ring-pink-300";
+      }
+      const promptInput = document.getElementById("emotionPromptText");
+      if (promptInput) {
+        promptInput.value = desc.split('/')[0].trim();
+      }
+      const tag = document.getElementById("activeEmotionTag");
+      if (tag) {
+        tag.innerText = `已选: ${desc.split('/')[0].trim()}`;
+        tag.classList.remove("hidden");
+      }
+    }
+
+    function onEmotionPromptInput() {
+      selectedEmotionKey = null;
+      document.querySelectorAll(".emo-pill-btn").forEach(btn => {
+        btn.className = "emo-pill-btn px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition text-center font-medium text-[11px] truncate";
+      });
+      const tag = document.getElementById("activeEmotionTag");
+      if (tag) tag.classList.add("hidden");
+    }
+
+
+    // 页面初始化
+    document.addEventListener("DOMContentLoaded", () => {
+      loadRunningHubConfig();
+      loadVoices();
+      loadEmotionPresets();
+      checkBotStatus();
+      // 智能低功耗心跳探测：页面前台活跃时每15s检测，切后台或休眠时彻底静默
+      setInterval(() => {
+        if (document.visibilityState === "visible") {
+          checkBotStatus();
+        }
+      }, 15000);
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          checkBotStatus();
+        }
+      });
+
+      // 字数统计与记住QQ
+      const textInput = document.getElementById("textInput");
+      textInput.addEventListener("input", () => {
+        document.getElementById("charCount").innerText = textInput.value.length + " 字";
+      });
+
+      const savedQQ = localStorage.getItem("talktoyou_target_qq");
+      if (savedQQ) {
+        document.getElementById("targetQQ").value = savedQQ;
+      }
+      const savedType = localStorage.getItem("talktoyou_target_type") || "private";
+      setTargetType(savedType);
+    });
+
+    function fillExample(txt) {
+      const textInput = document.getElementById("textInput");
+      textInput.value = txt;
+      document.getElementById("charCount").innerText = txt.length + " 字";
+    }
+
+    // 接收目标类型切换 (私聊/群聊)
+    let currentTargetType = "private";
+    let joinedGroups = [];
+
+    async function loadBotGroups() {
+      try {
+        const resp = await fetch("/api/bot/groups");
+        joinedGroups = await resp.json();
+        const sel = document.getElementById("groupQuickSelect");
+        const dl = document.getElementById("joinedGroupsList");
+        if (sel) {
+          sel.innerHTML = `<option value="">-- 点击快速选择已加群聊 (${joinedGroups.length}个) --</option>` +
+            joinedGroups.map(g => `<option value="${g.group_id}">${g.group_name} (${g.group_id})</option>`).join("");
+        }
+        if (dl) {
+          dl.innerHTML = joinedGroups.map(g => `<option value="${g.group_id}" label="${g.group_name}"></option>`).join("");
+        }
+      } catch (e) {
+        console.error("加载已加群列表失败:", e);
+      }
+    }
+
+    function setTargetType(type) {
+      currentTargetType = type;
+      localStorage.setItem("talktoyou_target_type", type);
+      const privBtn = document.getElementById("targetTypePrivateBtn");
+      const groupBtn = document.getElementById("targetTypeGroupBtn");
+      const input = document.getElementById("targetQQ");
+      const wrap = document.getElementById("groupQuickSelectWrap");
+
+      if (type === 'group') {
+        groupBtn.className = "px-3 py-1 rounded-md bg-white text-blue-600 shadow-2xs font-bold transition";
+        privBtn.className = "px-3 py-1 rounded-md text-slate-500 hover:text-slate-800 transition";
+        if (input) input.placeholder = "输入接收 QQ 群号（或从下方快速选择）";
+        if (wrap) wrap.classList.remove("hidden");
+        loadBotGroups();
+      } else {
+        privBtn.className = "px-3 py-1 rounded-md bg-white text-blue-600 shadow-2xs font-bold transition";
+        groupBtn.className = "px-3 py-1 rounded-md text-slate-500 hover:text-slate-800 transition";
+        if (input) input.placeholder = "输入接收好友 QQ 号";
+        if (wrap) wrap.classList.add("hidden");
+      }
+    }
+
+    // 切换音色库 / 新增选项卡
+    function switchTab(tabId) {
+      if (tabId === 'presetVoiceTab') {
+        document.getElementById("presetVoiceTab").classList.remove("hidden");
+        document.getElementById("customVoiceTab").classList.add("hidden");
+        document.getElementById("tabPresetBtn").className = "text-sm font-bold text-blue-600 border-b-2 border-blue-600 pb-1";
+        document.getElementById("tabCustomBtn").className = "text-sm font-bold text-slate-400 hover:text-slate-600 pb-1";
+      } else {
+        document.getElementById("presetVoiceTab").classList.add("hidden");
+        document.getElementById("customVoiceTab").classList.remove("hidden");
+        document.getElementById("tabPresetBtn").className = "text-sm font-bold text-slate-400 hover:text-slate-600 pb-1";
+        document.getElementById("tabCustomBtn").className = "text-sm font-bold text-indigo-600 border-b-2 border-indigo-600 pb-1";
+      }
+    }
+
+    // 获取并渲染音色
+    async function loadVoices() {
+      try {
+        const resp = await fetch("/api/voices");
+        currentVoices = await resp.json();
+        renderVoiceSelectors();
+        renderVoiceDetailsList();
+        if (selectedVoiceId) {
+          selectVoice(selectedVoiceId);
+        }
+      } catch (e) {
+        console.error("加载音色失败:", e);
+      }
+    }
+
+    function renderVoiceSelectors() {
+      const container = document.getElementById("voiceSelectorContainer");
+      container.innerHTML = "";
+
+      if (currentVoices.length > 0 && !selectedVoiceId) {
+        selectedVoiceId = currentVoices[0].id;
+      }
+
+      currentVoices.forEach(v => {
+        const isSelected = v.id === selectedVoiceId;
+        const card = document.createElement("div");
+        card.className = `p-3 rounded-xl border text-left cursor-pointer transition flex items-center justify-between ${
+          isSelected 
+            ? "border-blue-500 bg-blue-50/70 text-blue-900 shadow-sm" 
+            : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
+        }`;
+        card.onclick = () => selectVoice(v.id);
+
+        const iconClass = v.type === "custom" 
+          ? "fa-solid fa-microphone text-indigo-500" 
+          : (v.gender === "female" ? "fa-solid fa-venus text-pink-500" : "fa-solid fa-mars text-blue-500");
+
+        card.innerHTML = `
+          <div class="flex items-center space-x-2.5 overflow-hidden">
+            <div class="w-7 h-7 rounded-lg bg-white border border-slate-100 flex items-center justify-center text-xs shadow-xs">
+              <i class="${iconClass}"></i>
+            </div>
+            <div class="truncate">
+              <div class="text-xs font-bold truncate">${v.name}</div>
+              <div class="text-[10px] text-slate-400 truncate">${v.description || '自定义'}</div>
+            </div>
+          </div>
+          ${isSelected ? '<i class="fa-solid fa-circle-check text-blue-600 text-sm"></i>' : ''}
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function selectVoice(id) {
+      selectedVoiceId = id;
+      renderVoiceSelectors();
+
+      // 检测该音色是否已绑定专属情感并展示提醒
+      const v = currentVoices.find(x => x.id === id);
+      const notice = document.getElementById("voiceBoundEmotionNotice");
+      const title = document.getElementById("voiceBoundEmotionTitle");
+      if (v && v.emotion_audio) {
+        title.innerText = v.emotion_name || '专属情绪录音';
+        notice.classList.remove("hidden");
+      } else {
+        notice.classList.add("hidden");
+      }
+    }
+
+    function renderVoiceDetailsList() {
+      const container = document.getElementById("allVoicesList");
+      container.innerHTML = "";
+
+      currentVoices.forEach(v => {
+        const item = document.createElement("div");
+        item.className = "p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs";
+
+        const badge = v.type === "custom" 
+          ? `<span class="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-medium">克隆音色</span>`
+          : `<span class="bg-slate-200 text-slate-600 text-[10px] px-2 py-0.5 rounded-full font-medium">官方预设</span>`;
+
+        let emoBadge = "";
+        if (v.emotion_audio) {
+          emoBadge = `<span class="bg-pink-100 text-pink-700 text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center space-x-1" title="已绑定专属情绪"><i class="fa-solid fa-heart-pulse text-[9px]"></i><span>${v.emotion_name || '带专属情绪'}</span></span>`;
+        }
+
+        let deleteBtn = "";
+        if (v.type === "custom") {
+          deleteBtn = `<button onclick="handleDeleteVoice('${v.id}')" class="text-slate-400 hover:text-red-600 p-1 ml-2" title="删除该音色"><i class="fa-regular fa-trash-can"></i></button>`;
+        }
+
+        item.innerHTML = `
+          <div class="space-y-0.5 overflow-hidden pr-2">
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-slate-800">${v.name}</span>
+              ${badge}
+              ${emoBadge}
+            </div>
+            <p class="text-slate-400 text-[11px] truncate">${v.description || '无备注'}</p>
+          </div>
+          <div class="flex items-center">
+            ${deleteBtn}
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // 检查 QQ 机器人状态
+    async function checkBotStatus() {
+      const pill = document.getElementById("botStatusPill");
+      const text = document.getElementById("botStatusText");
+      try {
+        const resp = await fetch("/api/status");
+        const data = await resp.json();
+        pill.onclick = openConfigModal;
+        if (data.online) {
+          pill.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-pointer hover:bg-emerald-100/70 transition";
+          text.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> <span>小号已在线: <strong>${data.nickname}</strong> (${data.user_id})</span>`;
+        } else {
+          pill.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 cursor-pointer hover:bg-amber-100/70 transition";
+          text.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span> <span>NapCat 待连接 (点击设置)</span>`;
+        }
+      } catch (e) {
+        pill.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer";
+        pill.onclick = openConfigModal;
+        text.innerText = "后端服务未响应";
+      }
+    }
+
+    // ==================== RunningHub 云端工作流与角色调度 ====================
+    let currentEngine = '2113847965285941250'; // 默认 BreezeTTS2 云端多角色工作流
+    let runningHubConfig = null;
+    let selectedBreezeSpeaker = 'Alice';
+    let availableLocalVoices = [];
+
+    async function loadRunningHubConfig() {
+      try {
+        const resp = await fetch("/api/runninghub/config");
+        const data = await resp.json();
+        runningHubConfig = data;
+        
+        // 渲染 API Key 与自定义别名
+        const keyInput = document.getElementById("rhApiKeyInput");
+        if (keyInput) keyInput.value = data.api_key_masked || data.api_key || "";
+        const nameInput = document.getElementById("rhKeyNameInput");
+        if (nameInput) nameInput.value = data.key_name || "";
+
+        // 获取系统本地音色库供克隆预设选择 (具备前端内存缓存)
+        fetchLocalVoicesForBreeze();
+
+        // 渲染 8 位 Breeze 角色
+        const activeSpk = data.breeze_settings?.active_speaker || data.breeze_settings?.speaker || 'Alice';
+        renderBreezeSpeakers(data.breeze_speakers || [], activeSpk);
+        
+        // 渲染精度勾选
+        const hpCheck = document.getElementById("breezeHighPrecisionCheckbox");
+        if (hpCheck) hpCheck.checked = !!data.breeze_settings?.high_precision;
+
+        // 设置当前激活工作流
+        const activeWf = data.active_workflow || '2113847965285941250';
+        switchRunningHubWorkflow(activeWf, false);
+      } catch (e) {
+        console.error("加载 RunningHub 配置失败:", e);
+      }
+    }
+
+    async function fetchLocalVoicesForBreeze() {
+      if (availableLocalVoices && availableLocalVoices.length > 0) {
+        populateBreezePresetSelect();
+        return;
+      }
+      try {
+        const r = await fetch("/api/voices");
+        if (r.ok) {
+          availableLocalVoices = await r.json();
+          // 若详情面板已展开，重新填充预设下拉框
+          populateBreezePresetSelect();
+        }
+      } catch (e) {
+        console.error("获取本地预设音色库失败:", e);
+      }
+    }
+
+    function renderBreezeSpeakers(speakers, activeSpeakerId) {
+      selectedBreezeSpeaker = activeSpeakerId || 'Alice';
+      const grid = document.getElementById("breezeSpeakersGrid");
+      const tagButtons = document.getElementById("breezeTagButtons");
+      if (!grid) return;
+      grid.innerHTML = "";
+      if (tagButtons) tagButtons.innerHTML = "";
+
+      speakers.forEach(spk => {
+        const isSel = spk.id === selectedBreezeSpeaker;
+        const curName = spk.current_name || spk.name;
+        const isClone = !!spk.current_clone_mode;
+
+        // 1. 渲染快捷台词标签按钮
+        if (tagButtons) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = `px-2 py-0.5 rounded-md font-semibold text-[11px] border transition shadow-2xs ${
+            isSel 
+              ? 'bg-blue-600 text-white border-blue-700 shadow-xs' 
+              : 'bg-white hover:bg-blue-50 text-slate-700 border-blue-200/80 hover:text-blue-700'
+          }`;
+          btn.innerHTML = `+ ${curName}:`;
+          btn.title = `在光标处插入 ${curName}: 角色台词`;
+          btn.onclick = () => insertBreezeSpeakerTag(curName);
+          tagButtons.appendChild(btn);
+        }
+
+        // 2. 渲染 8 角色选择卡片
+        const card = document.createElement("div");
+        card.className = `p-2.5 rounded-xl border-2 transition cursor-pointer flex flex-col justify-between space-y-1.5 shadow-2xs ${
+          isSel 
+            ? "border-blue-500 bg-white ring-2 ring-blue-500/20" 
+            : "border-slate-200/80 bg-white/70 hover:border-blue-200 hover:bg-white"
+        }`;
+        card.onclick = () => selectBreezeSpeaker(spk.id);
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-xs ${isSel ? 'text-blue-900 font-extrabold' : 'text-slate-800'}">${curName}</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded-md font-bold ${spk.gender === '女声' ? 'bg-pink-100 text-pink-700' : 'bg-sky-100 text-sky-700'}">${spk.gender}</span>
+          </div>
+          <div class="flex items-center justify-between text-[10px]">
+            <span class="px-1.5 py-0.5 rounded font-medium ${isClone ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}">
+              ${isClone ? '🎙️ 克隆模式' : '🎨 描述模式'}
+            </span>
+            <span class="text-[9px] text-slate-400">槽位${spk.slot}</span>
+          </div>
+          <p class="text-[10px] text-slate-500 truncate leading-tight">
+            ${isClone ? (spk.current_audio_label || '已绑参考音频') : (spk.current_instruction || spk.desc || '')}
+          </p>
+        `;
+        grid.appendChild(card);
+      });
+
+      // 3. 渲染当前选中角色的深度调教面板
+      renderBreezeDetailEditor();
+    }
+
+    function renderBreezeDetailEditor() {
+      const container = document.getElementById("breezeDetailCard");
+      if (!container || !runningHubConfig || !runningHubConfig.breeze_speakers) return;
+
+      const spk = runningHubConfig.breeze_speakers.find(s => s.id === selectedBreezeSpeaker);
+      if (!spk) return;
+
+      const isClone = !!spk.current_clone_mode;
+      const curName = spk.current_name || spk.name;
+      const curInst = spk.current_instruction || spk.default_instruction || "";
+      const curAudio = spk.current_audio || spk.default_audio || "";
+      const curAudioLabel = spk.current_audio_label || spk.default_audio_label || "默认参考音频";
+      const previewUrl = spk.preview_url || "";
+
+      container.innerHTML = `
+        <!-- 头部标题栏 -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div class="flex items-center space-x-2">
+            <span class="text-sm font-extrabold text-blue-950 flex items-center space-x-1.5">
+              <span>🎙️ 正在配置：<span class="text-blue-600">${curName}</span></span>
+              <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-normal">声优卡槽 ${spk.slot} (${spk.id})</span>
+            </span>
+            <span class="text-[10px] px-2 py-0.5 rounded-md font-bold ${spk.gender === '女声' ? 'bg-pink-100 text-pink-700' : 'bg-sky-100 text-sky-700'}">${spk.gender}</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button type="button" onclick="insertBreezeSpeakerTag('${curName}')" 
+              class="px-2.5 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg border border-blue-200 transition shadow-2xs flex items-center space-x-1">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>插入 ${curName}: 到台词</span>
+            </button>
+            <button type="button" onclick="resetCurrentBreezeSpeaker()" 
+              class="px-2 py-1 text-[11px] text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition" title="将本角色重置为工作流出厂设置">
+              <i class="fa-solid fa-rotate-left"></i> 重置默认
+            </button>
+          </div>
+        </div>
+
+        <!-- 基础配置：角色名与音色模式双栏 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <!-- 角色名输入 -->
+          <div class="space-y-1">
+            <label class="block font-bold text-slate-700 flex items-center space-x-1">
+              <span>1. 角色名设定 (剧本触发关键词)</span>
+            </label>
+            <div class="relative">
+              <input type="text" id="breezeEditNameInput" value="${curName}" 
+                onchange="updateBreezeSpeakerName(this.value)"
+                placeholder="例如: Alice, 派蒙, 少女, 旁白..." 
+                class="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 font-bold text-slate-800 bg-slate-50/50">
+            </div>
+            <p class="text-[10px] text-slate-400">在剧本中使用 <code>${curName}: 台词</code> 即可指定本角色发音。</p>
+          </div>
+
+          <!-- 音色模式选择 (Segmented Control) -->
+          <div class="space-y-1">
+            <label class="block font-bold text-slate-700">2. 音色生成模式切换</label>
+            <div class="grid grid-cols-2 p-1 bg-slate-100 rounded-xl text-xs font-bold border border-slate-200/80">
+              <button type="button" onclick="toggleBreezeSpeakerCloneMode(false)"
+                class="py-1.5 rounded-lg transition ${!isClone ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'}">
+                🎨 文本特点描述生成
+              </button>
+              <button type="button" onclick="toggleBreezeSpeakerCloneMode(true)"
+                class="py-1.5 rounded-lg transition ${isClone ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'}">
+                🎙️ 声音克隆模式
+              </button>
+            </div>
+            <p class="text-[10px] text-slate-400">
+              ${isClone ? '当前模式：提取参考音频声纹进行真实克隆。' : '当前模式：依据文本自然语言描述自动生成特色人设嗓音。'}
+            </p>
+          </div>
+        </div>
+
+        <!-- 动态面板 A：当为【文本特点描述生成】模式时 -->
+        <div id="breezeInstructionPanel" class="${isClone ? 'hidden' : ''} space-y-2 bg-indigo-50/40 p-3 rounded-xl border border-indigo-100/80 text-xs">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-indigo-950 flex items-center space-x-1.5">
+              <i class="fa-solid fa-pen-nib text-indigo-600"></i>
+              <span>声音特点文本描述 (Voice Prompt Description)</span>
+            </label>
+            <span class="text-[10px] text-indigo-600 bg-indigo-100/80 px-2 py-0.5 rounded-full font-medium">支持微调语气/风格/语速</span>
+          </div>
+          <textarea id="breezeEditInstructionInput" rows="2" 
+            onchange="updateBreezeSpeakerInstruction(this.value)"
+            class="w-full p-2.5 border border-indigo-200/90 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-slate-700 text-xs leading-relaxed"
+            placeholder="例如：温暖清晰的年轻女声，语调平和，普通话标准，语速适中。">${curInst}</textarea>
+
+          <!-- 快速风格标签 -->
+          <div class="flex flex-wrap items-center gap-1.5 pt-1">
+            <span class="text-[10px] text-slate-400 font-medium">快捷特点添加:</span>
+            ${['语速适中', '语速稍慢', '语速轻快', '温暖知性', '活泼俏皮', '低沉磁性', '成熟浑厚', '沙哑烟嗓', '带着笑意', '语气郑重'].map(tag => `
+              <button type="button" onclick="appendBreezeInstructionTag('${tag}')" 
+                class="px-2 py-0.5 bg-white hover:bg-indigo-100/70 text-indigo-700 border border-indigo-200/70 rounded-md text-[10px] transition shadow-2xs">
+                + ${tag}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- 动态面板 B：当为【声音克隆模式】时 -->
+        <div id="breezeClonePanel" class="${!isClone ? 'hidden' : ''} space-y-3 bg-emerald-50/40 p-3.5 rounded-xl border border-emerald-100 text-xs">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-emerald-950 flex items-center space-x-1.5">
+              <i class="fa-solid fa-microphone-lines text-emerald-600"></i>
+              <span>克隆参考音频来源 (支持本地上传或从预设音色库挑选)</span>
+            </label>
+            <span class="text-[10px] text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full font-medium">3~10秒高质量音频</span>
+          </div>
+
+          <!-- 当前已绑定的音频状态展示 -->
+          <div class="p-2.5 bg-white rounded-xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-file-audio text-emerald-500 text-base"></i>
+              <div>
+                <span class="text-[11px] font-bold text-slate-800 block">${curAudioLabel}</span>
+                <span class="text-[9px] text-slate-400 font-mono truncate max-w-xs block">${curAudio}</span>
+              </div>
+            </div>
+            ${previewUrl ? `
+              <div class="flex items-center space-x-2">
+                <audio controls src="${previewUrl}" class="h-7 w-48"></audio>
+              </div>
+            ` : `
+              <span class="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
+                ✓ 已就绪于云端
+              </span>
+            `}
+          </div>
+
+          <!-- 方式一：从预设音色库直接挑选 -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+            <div class="p-3 bg-white rounded-xl border border-emerald-200/80 space-y-2">
+              <span class="font-bold text-slate-700 block flex items-center space-x-1">
+                <i class="fa-solid fa-box-archive text-emerald-600"></i>
+                <span>方式 1：从预设音色库中挑选</span>
+              </span>
+              <select id="breezePresetAudioSelect" onchange="onBreezePresetSelectChanged()"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50/50">
+                <!-- 动态填充 -->
+              </select>
+              <div class="flex items-center space-x-2">
+                <audio id="breezePresetListenAudio" controls class="h-6 flex-1 hidden"></audio>
+                <button type="button" onclick="applySelectedBreezePreset()" id="applyPresetBtn"
+                  class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-2xs transition">
+                  ✓ 应用此预设音色至角色
+                </button>
+              </div>
+            </div>
+
+            <!-- 方式二：本地音频文件上传 -->
+            <div class="p-3 bg-white rounded-xl border border-emerald-200/80 space-y-2 flex flex-col justify-between">
+              <div>
+                <span class="font-bold text-slate-700 block flex items-center space-x-1">
+                  <i class="fa-solid fa-cloud-arrow-up text-blue-600"></i>
+                  <span>方式 2：上传本地音频文件</span>
+                </span>
+                <p class="text-[10px] text-slate-400 mt-1">支持 .wav / .mp3 / .flac / .m4a 文件，上传后自动同步至 RunningHub 实例。</p>
+              </div>
+              <div>
+                <button type="button" onclick="triggerBreezeLocalUpload()" id="breezeUploadBtn"
+                  class="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-2xs transition flex items-center justify-center space-x-1.5">
+                  <i class="fa-solid fa-upload"></i>
+                  <span id="breezeUploadBtnText">选择本地音频上传</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // 填充预设库下拉选项
+      populateBreezePresetSelect();
+    }
+
+    function populateBreezePresetSelect() {
+      const select = document.getElementById("breezePresetAudioSelect");
+      if (!select || !runningHubConfig) return;
+
+      const spk = runningHubConfig.breeze_speakers?.find(s => s.id === selectedBreezeSpeaker);
+      select.innerHTML = "";
+
+      // 分组 1: 官方工作流原生预设
+      const grpOfficial = document.createElement("optgroup");
+      grpOfficial.label = "── 官方工作流原生预设参考音频 ──";
+      if (spk) {
+        const opt = document.createElement("option");
+        opt.value = `official_${spk.id}`;
+        opt.textContent = `${spk.id} 官方原声音频 (${spk.default_audio.slice(0, 8)}...)`;
+        opt.dataset.audio = spk.default_audio;
+        opt.dataset.label = `${spk.id} 官方预设原声`;
+        grpOfficial.appendChild(opt);
+      }
+      select.appendChild(grpOfficial);
+
+      // 分组 2: 本地系统音色预设库
+      if (availableLocalVoices && availableLocalVoices.length > 0) {
+        const grpLocal = document.createElement("optgroup");
+        grpLocal.label = "── 本地音色库 (系统预设与自定义) ──";
+        availableLocalVoices.forEach(v => {
+          const opt = document.createElement("option");
+          opt.value = `local_${v.id}`;
+          opt.textContent = `${v.name} (${v.gender === 'female' ? '女声' : '男声'})`;
+          opt.dataset.voiceId = v.id;
+          opt.dataset.audioUrl = v.prompt_audio_url || "";
+          opt.dataset.label = v.name;
+          grpLocal.appendChild(opt);
+        });
+        select.appendChild(grpLocal);
+      }
+
+      onBreezePresetSelectChanged();
+    }
+
+    function onBreezePresetSelectChanged() {
+      const select = document.getElementById("breezePresetAudioSelect");
+      const player = document.getElementById("breezePresetListenAudio");
+      if (!select || !player) return;
+
+      const opt = select.selectedOptions[0];
+      if (opt && opt.dataset.audioUrl) {
+        player.src = opt.dataset.audioUrl;
+        player.classList.remove("hidden");
+      } else {
+        player.classList.add("hidden");
+      }
+    }
+
+    async function applySelectedBreezePreset() {
+      const select = document.getElementById("breezePresetAudioSelect");
+      const btn = document.getElementById("applyPresetBtn");
+      if (!select || !runningHubConfig) return;
+
+      const opt = select.selectedOptions[0];
+      if (!opt) return;
+
+      const spkId = selectedBreezeSpeaker;
+      const originalText = btn ? btn.innerHTML : "";
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 同步到云端中...`;
+      }
+
+      try {
+        if (opt.value.startsWith("official_")) {
+          // 官方预设原声音频
+          const audioHash = opt.dataset.audio;
+          const label = opt.dataset.label;
+          updateBreezeSpeakerSetting(spkId, {
+            clone_mode: true,
+            audio_file: audioHash,
+            audio_label: label,
+            preview_url: ""
+          });
+          showToast(`已成功将 ${spkId} 音频设置为【${label}】！`, "success");
+        } else if (opt.value.startsWith("local_")) {
+          // 本地音色预设上传至 RunningHub
+          const voiceId = opt.dataset.voiceId;
+          const label = opt.dataset.label;
+          const resp = await fetch("/api/runninghub/upload_preset", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ voice_id: voiceId })
+          });
+          const res = await resp.json();
+          if (resp.ok && res.success) {
+            updateBreezeSpeakerSetting(spkId, {
+              clone_mode: true,
+              audio_file: res.runninghub_file,
+              audio_label: `${label} (云端同步)`,
+              preview_url: res.preview_url || ""
+            });
+            showToast(`已将【${label}】上传并绑定至 ${spkId}！`, "success");
+          } else {
+            showToast(res.message || "预设上传失败", "error");
+          }
+        }
+      } catch (e) {
+        showToast("同步预设失败: " + e.message, "error");
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      }
+    }
+
+    function triggerBreezeLocalUpload() {
+      const input = document.getElementById("breezeLocalAudioInput");
+      if (input) {
+        input.value = "";
+        input.click();
+      }
+    }
+
+    async function handleBreezeLocalAudioUpload(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const btnText = document.getElementById("breezeUploadBtnText");
+      const original = btnText ? btnText.innerText : "选择本地音频上传";
+      if (btnText) btnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 正在上传至云端...`;
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const resp = await fetch("/api/runninghub/upload_audio", {
+          method: "POST",
+          body: formData
+        });
+        const res = await resp.json();
+        if (resp.ok && res.success) {
+          updateBreezeSpeakerSetting(selectedBreezeSpeaker, {
+            clone_mode: true,
+            audio_file: res.runninghub_file,
+            audio_label: `本地上传: ${file.name}`,
+            preview_url: res.preview_url || ""
+          });
+          showToast(`已成功上传并绑定【${file.name}】至角色 ${selectedBreezeSpeaker}！`, "success");
+        } else {
+          showToast(res.message || "上传失败", "error");
+        }
+      } catch (e) {
+        showToast("音频上传失败: " + e.message, "error");
+      } finally {
+        if (btnText) btnText.innerText = original;
+      }
+    }
+
+    function selectBreezeSpeaker(spkId) {
+      selectedBreezeSpeaker = spkId;
+      if (runningHubConfig && runningHubConfig.breeze_speakers) {
+        renderBreezeSpeakers(runningHubConfig.breeze_speakers, spkId);
+        // 保存当前活跃发音人
+        fetch("/api/runninghub/config", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ breeze_settings: { active_speaker: spkId } })
+        }).catch(() => {});
+      }
+    }
+
+    function updateBreezeSpeakerName(newName) {
+      const trimmed = newName.trim();
+      if (!trimmed) return;
+      updateBreezeSpeakerSetting(selectedBreezeSpeaker, { name: trimmed });
+    }
+
+    function updateBreezeSpeakerInstruction(newInst) {
+      updateBreezeSpeakerSetting(selectedBreezeSpeaker, { instruction: newInst.trim() });
+    }
+
+    function appendBreezeInstructionTag(tag) {
+      const input = document.getElementById("breezeEditInstructionInput");
+      if (!input) return;
+      let val = input.value.trim();
+      if (val && !val.endsWith("，") && !val.endsWith("。") && !val.endsWith(",")) {
+        val += "，";
+      }
+      val += tag + "。";
+      input.value = val;
+      updateBreezeSpeakerInstruction(val);
+    }
+
+    function toggleBreezeSpeakerCloneMode(isClone) {
+      updateBreezeSpeakerSetting(selectedBreezeSpeaker, { clone_mode: isClone });
+    }
+
+    function resetCurrentBreezeSpeaker() {
+      if (!runningHubConfig || !runningHubConfig.breeze_speakers) return;
+      const spk = runningHubConfig.breeze_speakers.find(s => s.id === selectedBreezeSpeaker);
+      if (!spk) return;
+      if (!confirm(`确定将角色 ${spk.id} 恢复为出厂官方默认设置吗？`)) return;
+
+      updateBreezeSpeakerSetting(spk.id, {
+        name: spk.default_name,
+        clone_mode: spk.default_clone_mode,
+        instruction: spk.default_instruction,
+        audio_file: spk.default_audio,
+        audio_label: spk.default_audio_label,
+        preview_url: ""
+      });
+      showToast(`已重置角色 ${spk.id} 为官方默认参数！`, "success");
+    }
+
+    function updateBreezeSpeakerSetting(spkId, delta) {
+      if (!runningHubConfig) return;
+      if (!runningHubConfig.breeze_settings) runningHubConfig.breeze_settings = {};
+      if (!runningHubConfig.breeze_settings.speakers) runningHubConfig.breeze_settings.speakers = {};
+      if (!runningHubConfig.breeze_settings.speakers[spkId]) runningHubConfig.breeze_settings.speakers[spkId] = {};
+
+      Object.assign(runningHubConfig.breeze_settings.speakers[spkId], delta);
+
+      // 同步内存展示
+      const spkObj = runningHubConfig.breeze_speakers?.find(s => s.id === spkId);
+      if (spkObj) {
+        if ("name" in delta) spkObj.current_name = delta.name;
+        if ("clone_mode" in delta) spkObj.current_clone_mode = delta.clone_mode;
+        if ("instruction" in delta) spkObj.current_instruction = delta.instruction;
+        if ("audio_file" in delta) spkObj.current_audio = delta.audio_file;
+        if ("audio_label" in delta) spkObj.current_audio_label = delta.audio_label;
+        if ("preview_url" in delta) spkObj.preview_url = delta.preview_url;
+      }
+
+      // 静默保存至服务端
+      const payload = {
+        breeze_settings: {
+          speakers: {
+            [spkId]: runningHubConfig.breeze_settings.speakers[spkId]
+          }
+        }
+      };
+      fetch("/api/runninghub/config", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      }).catch(err => console.error("保存角色配置失败:", err));
+
+      // 局部刷新卡片与详情
+      renderBreezeSpeakers(runningHubConfig.breeze_speakers, selectedBreezeSpeaker);
+    }
+
+    function insertBreezeSpeakerTag(roleName) {
+      const textarea = document.getElementById("textInput");
+      if (!textarea) return;
+
+      const tag = `${roleName}: `;
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || 0;
+      const val = textarea.value;
+
+      // 如果不是在行首，先换行
+      const prefix = (start > 0 && val[start - 1] !== "\n") ? "\n" : "";
+      textarea.value = val.slice(0, start) + prefix + tag + val.slice(end);
+      textarea.focus();
+      const newPos = start + prefix.length + tag.length;
+      textarea.setSelectionRange(newPos, newPos);
+      updateCharCount();
+    }
+
+    function insertBreezeEventTag(eventTag) {
+      const textarea = document.getElementById("textInput");
+      if (!textarea) return;
+
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || 0;
+      const val = textarea.value;
+
+      textarea.value = val.slice(0, start) + eventTag + val.slice(end);
+      textarea.focus();
+      const newPos = start + eventTag.length;
+      textarea.setSelectionRange(newPos, newPos);
+      updateCharCount();
+    }
+
+    function insertBreezeDialogTemplate(type) {
+      const textarea = document.getElementById("textInput");
+      if (!textarea) return;
+
+      let spk1 = "Alice";
+      let spk2 = "Bob";
+      if (runningHubConfig && runningHubConfig.breeze_speakers) {
+        spk1 = runningHubConfig.breeze_speakers[0]?.current_name || "Alice";
+        spk2 = runningHubConfig.breeze_speakers[1]?.current_name || "Bob";
+      }
+
+      if (type === "dual") {
+        textarea.value = `${spk1}: 你好呀！今天的天气真的很不错呢，阳光特别舒服。\n${spk2}: 是啊，手头的工作忙完了吗？要不要一起去附近的公园散散步？\n${spk1}: 好主意！我正想着出去呼吸一下新鲜空气呢，咱们现在就出发吧！`;
+      } else {
+        const names = (runningHubConfig?.breeze_speakers || []).map(s => s.current_name || s.name);
+        textarea.value = `${names[0] || 'Alice'}: 各位都准备好了吗？今晚的项目发布会马上要开始了！\n` +
+          `${names[1] || 'Bob'}: 放心吧，所有的音频切片和模型配置都已经校准完毕。\n` +
+          `${names[2] || 'Carol'}: 太棒啦！我和大家都超级期待今晚的演示！\n` +
+          `${names[3] || 'David'}: 稳扎稳打，大家各司其职，保证万无一失。`;
+      }
+      updateCharCount();
+    }
+
+    function toggleBreezePrecision() {
+      const check = document.getElementById("breezeHighPrecisionCheckbox");
+      fetch("/api/runninghub/config", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ breeze_settings: { high_precision: check.checked } })
+      }).catch(() => {});
+    }
+
+    function switchRunningHubWorkflow(wfid, syncRemote = true) {
+      currentEngine = wfid;
+      const idxBtn = document.getElementById('wfIndexBtn');
+      const brzBtn = document.getElementById('wfBreezeBtn');
+      const idxEmotion = document.getElementById('indexEmotionSection');
+      const brzSection = document.getElementById('breezeSection');
+      const brzScriptBar = document.getElementById('breezeScriptBar');
+      const localVoiceSection = document.getElementById('localVoiceSection');
+
+      if (wfid === '2113847965285941250') {
+        // 切换为 BreezeTTS2 多角色 (隐藏多余的单角色发音音色卡片)
+        if (brzBtn) brzBtn.className = "px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs font-bold transition";
+        if (idxBtn) idxBtn.className = "px-3.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition";
+        if (brzSection) brzSection.classList.remove('hidden');
+        if (brzScriptBar) brzScriptBar.classList.remove('hidden');
+        if (idxEmotion) idxEmotion.classList.add('hidden');
+        if (localVoiceSection) localVoiceSection.classList.add('hidden');
+      } else {
+        // 切换为 IndexTTS2 旗舰情感
+        if (idxBtn) idxBtn.className = "px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs font-bold transition";
+        if (brzBtn) brzBtn.className = "px-3.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition";
+        if (idxEmotion) idxEmotion.classList.remove('hidden');
+        if (brzSection) brzSection.classList.add('hidden');
+        if (brzScriptBar) brzScriptBar.classList.add('hidden');
+        if (localVoiceSection) localVoiceSection.classList.remove('hidden');
+      }
+
+      if (syncRemote) {
+        fetch("/api/runninghub/config", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ active_workflow: wfid })
+        }).catch(() => {});
+      }
+    }
+
+    function switchEngine(engine) {
+      if (engine === 'indextts2') {
+        switchRunningHubWorkflow('2113835289022435330');
+      } else {
+        switchRunningHubWorkflow('2113847965285941250');
+      }
+    }
+
+    // Modal 相关函数
+    function openRunningHubModal() {
+      document.getElementById("runninghubModal").classList.remove("hidden");
+      const statusBox = document.getElementById("rhConnStatus");
+      if (statusBox) statusBox.classList.add("hidden");
+      loadRunningHubConfig();
+    }
+    function closeRunningHubModal() {
+      document.getElementById("runninghubModal").classList.add("hidden");
+    }
+    function toggleApiKeyVisibility() {
+      const input = document.getElementById("rhApiKeyInput");
+      const icon = document.getElementById("rhKeyEyeIcon");
+      if (input.type === "password") {
+        input.type = "text";
+        icon.className = "fa-solid fa-eye-slash";
+      } else {
+        input.type = "password";
+        icon.className = "fa-solid fa-eye";
+      }
+    }
+
+    async function testRunningHubConnection() {
+      const btn = document.getElementById("btnTestConn");
+      const statusBox = document.getElementById("rhConnStatus");
+      const keyInput = document.getElementById("rhApiKeyInput").value.trim();
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>检测中...</span>`;
+      }
+      statusBox.classList.remove("hidden");
+      statusBox.className = "text-[11px] p-2.5 rounded-xl border mt-1.5 bg-slate-50 border-slate-200 text-slate-600 flex items-center space-x-2";
+      statusBox.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-purple-600"></i><span>正在向 RunningHub 云端握手并验证 API 授权有效性...</span>`;
+
+      try {
+        const resp = await fetch("/api/runninghub/test_connection", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ api_key: keyInput })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          statusBox.className = "text-[11px] p-2.5 rounded-xl border mt-1.5 bg-emerald-50 border-emerald-200 text-emerald-800 flex items-center space-x-2";
+          statusBox.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i><span><b>连通成功：</b>${data.message || "RunningHub 云端 API Key 授权有效，工作流接口就绪！"}</span>`;
+        } else {
+          statusBox.className = "text-[11px] p-2.5 rounded-xl border mt-1.5 bg-rose-50 border-rose-200 text-rose-800 flex items-center space-x-2";
+          statusBox.innerHTML = `<i class="fa-solid fa-circle-xmark text-rose-600 text-sm"></i><span><b>连通失败：</b>${data.message || "API Key 无效或未开通权限"}</span>`;
+        }
+      } catch (err) {
+        statusBox.className = "text-[11px] p-2.5 rounded-xl border mt-1.5 bg-rose-50 border-rose-200 text-rose-800 flex items-center space-x-2";
+        statusBox.innerHTML = `<i class="fa-solid fa-circle-xmark text-rose-600 text-sm"></i><span><b>网络异常：</b>${err.message}</span>`;
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-bolt"></i><span>连通性检测</span>`;
+        }
+      }
+    }
+
+    function selectModalWorkflow(wfid) {
+      ['2113835289022435330', '2113847965285941250'].forEach(id => {
+        const card = document.getElementById(`modalWfCard_${id}`);
+        const icon = card ? card.querySelector(".modalWfCheck") : null;
+        if (id === wfid) {
+          if (card) card.className = "p-3.5 rounded-2xl border-2 border-purple-500 bg-purple-50/50 cursor-pointer transition flex items-start justify-between";
+          if (icon) icon.className = "fa-solid fa-circle-check text-purple-600 text-base modalWfCheck";
+        } else {
+          if (card) card.className = "p-3.5 rounded-2xl border-2 border-slate-200 bg-white hover:border-blue-300 cursor-pointer transition flex items-start justify-between";
+          if (icon) icon.className = "fa-regular fa-circle text-slate-300 text-base modalWfCheck";
+        }
+      });
+      switchRunningHubWorkflow(wfid, true);
+    }
+    async function saveRunningHubModalConfig() {
+      const key = document.getElementById("rhApiKeyInput").value.trim();
+      const keyName = document.getElementById("rhKeyNameInput")?.value.trim() || "";
+      const temp = parseFloat(document.getElementById("rhTempInput")?.value || 0.8);
+      const topP = parseFloat(document.getElementById("rhTopPInput")?.value || 0.8);
+      const payload = {
+        key_name: keyName,
+        indextts2_settings: { temperature: temp, top_p: topP }
+      };
+      if (key && !key.includes("****")) {
+        payload.api_key = key;
+      }
+      try {
+        await fetch("/api/runninghub/config", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        const tip = document.getElementById("rhSaveTip");
+        tip.classList.remove("hidden");
+        setTimeout(() => tip.classList.add("hidden"), 3000);
+        loadRunningHubConfig();
+      } catch (e) {
+        alert("保存配置失败: " + e.message);
+      }
+    }
+
+    // 切换情感模式 (音频 vs 描述)
+    function toggleEmotionInput() {
+      const mode = document.querySelector('input[name="emotionMode"]:checked')?.value || 'audio';
+      const audioBox = document.getElementById('emotionAudioBox');
+      const textBox = document.getElementById('emotionTextBox');
+      if (mode === 'audio') {
+        audioBox.classList.remove('hidden');
+        textBox.classList.add('hidden');
+      } else {
+        audioBox.classList.add('hidden');
+        textBox.classList.remove('hidden');
+      }
+    }
+
+    // 一键从剪贴板粘贴
+    async function pasteFromClipboard() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text || !text.trim()) {
+          alert("剪贴板内容为空");
+          return;
+        }
+        const input = document.getElementById("textInput");
+        input.value = text;
+        document.getElementById("charCount").innerText = text.length + " 字";
+      } catch (e) {
+        alert("读取剪贴板失败，请确保浏览器已允许访问剪贴板，或直接使用快捷键 Ctrl+V 粘贴。");
+      }
+    }
+
+    // 一键复制文本内容
+    async function copyInputText() {
+      const text = document.getElementById("textInput").value;
+      if (!text || !text.trim()) {
+        alert("当前没有可复制的文本");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        alert("✅ 已成功复制文本到剪贴板！");
+      } catch (e) {
+        alert("复制失败: " + e.message);
+      }
+    }
+
+    // 清空文本
+    function clearInputText() {
+      document.getElementById("textInput").value = "";
+      document.getElementById("charCount").innerText = "0 字";
+    }
+
+    // 合成动态进度条系统（实事求是·真实云端节点追踪）
+    let synthTimerInterval = null;
+    let synthProgressPollInterval = null;
+    let synthStartTime = 0;
+
+    function startSynthProgress(engineName) {
+      const card = document.getElementById("synthesisProgressCard");
+      const bar = document.getElementById("synthProgressBar");
+      const stage = document.getElementById("synthStageText");
+      const badge = document.getElementById("synthEngineBadge");
+      const stepName = document.getElementById("synthStepName");
+      const pctText = document.getElementById("synthPercentText");
+      const timer = document.getElementById("synthTimer");
+
+      card.classList.remove("hidden");
+      const isBreeze = (engineName === "2113847965285941250" || engineName === "breeze");
+      badge.innerText = isBreeze ? "RunningHub · BreezeTTS2 多角色" : "RunningHub · IndexTTS2 情感旗舰";
+      badge.className = isBreeze 
+        ? "px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700"
+        : "px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700";
+
+      synthStartTime = Date.now();
+      bar.style.width = "10%";
+      pctText.innerText = "10%";
+      stage.innerText = "正在清洗文本并打包参数提交至 RunningHub 云端...";
+      stepName.innerText = "任务提交调度";
+      timer.innerText = "⏱️ 0.0s";
+
+      if (synthTimerInterval) clearInterval(synthTimerInterval);
+      if (synthProgressPollInterval) clearInterval(synthProgressPollInterval);
+
+      // 实时真实耗时秒表
+      synthTimerInterval = setInterval(() => {
+        const elapsedSec = (Date.now() - synthStartTime) / 1000;
+        timer.innerText = `⏱️ ${elapsedSec.toFixed(1)}s`;
+      }, 200);
+
+      // 实事求是·轮询后端实际执行节点与下载转码状态
+      synthProgressPollInterval = setInterval(async () => {
+        try {
+          const resp = await fetch("/api/tts/progress");
+          if (!resp.ok) return;
+          const prog = await resp.json();
+          if (prog && prog.active) {
+            const p = Math.max(10, Math.min(99, prog.percent || 10));
+            bar.style.width = p + "%";
+            pctText.innerText = p + "%";
+            if (prog.stage) stage.innerText = prog.stage;
+            if (prog.step_name) stepName.innerText = prog.step_name;
+          }
+        } catch (e) {
+          // 忽略轮询网络偶发抖动
+        }
+      }, 600);
+    }
+
+    function finishSynthProgress() {
+      if (synthTimerInterval) clearInterval(synthTimerInterval);
+      if (synthProgressPollInterval) clearInterval(synthProgressPollInterval);
+      synthTimerInterval = null;
+      synthProgressPollInterval = null;
+
+      const bar = document.getElementById("synthProgressBar");
+      const stage = document.getElementById("synthStageText");
+      const stepName = document.getElementById("synthStepName");
+      const pctText = document.getElementById("synthPercentText");
+
+      if (bar) bar.style.width = "100%";
+      if (pctText) pctText.innerText = "100%";
+      if (stage) stage.innerText = "✨ 语音合成成功，已极速封装为 QQ 原生 Silk 语音条！";
+      if (stepName) stepName.innerText = "完成";
+
+      setTimeout(() => {
+        const card = document.getElementById("synthesisProgressCard");
+        if (card) card.classList.add("hidden");
+      }, 2000);
+    }
+
+    function stopSynthProgressWithError(msg) {
+      if (synthTimerInterval) clearInterval(synthTimerInterval);
+      if (synthProgressPollInterval) clearInterval(synthProgressPollInterval);
+      synthTimerInterval = null;
+      synthProgressPollInterval = null;
+
+      const stage = document.getElementById("synthStageText");
+      if (stage) stage.innerText = `❌ ${msg}`;
+      setTimeout(() => {
+        const card = document.getElementById("synthesisProgressCard");
+        if (card) card.classList.add("hidden");
+      }, 3500);
+    }
+      if (synthTimerInterval) clearInterval(synthTimerInterval);
+      const stage = document.getElementById("synthStageText");
+      stage.innerText = `❌ ${msg}`;
+      setTimeout(() => {
+        document.getElementById("synthesisProgressCard").classList.add("hidden");
+      }, 3500);
+    }
+
+    // 语音识别转文字 (ASR) 业务逻辑
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let asrRecordTimerInterval = null;
+    let asrRecordSeconds = 0;
+
+    function openAsrModal() {
+      document.getElementById("asrModal").classList.remove("hidden");
+      switchAsrTab('upload');
+    }
+
+    function closeAsrModal() {
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+      }
+      if (asrRecordTimerInterval) clearInterval(asrRecordTimerInterval);
+      document.getElementById("asrModal").classList.add("hidden");
+    }
+
+    function switchAsrTab(tab) {
+      const uploadBtn = document.getElementById("asrTabUpload");
+      const recordBtn = document.getElementById("asrTabRecord");
+      const uploadSec = document.getElementById("asrUploadSection");
+      const recordSec = document.getElementById("asrRecordSection");
+
+      if (tab === 'upload') {
+        uploadBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-indigo-700 shadow-2xs font-bold transition";
+        recordBtn.className = "flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
+        uploadSec.classList.remove("hidden");
+        recordSec.classList.add("hidden");
+      } else {
+        recordBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-indigo-700 shadow-2xs font-bold transition";
+        uploadBtn.className = "flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
+        uploadSec.classList.add("hidden");
+        recordSec.classList.remove("hidden");
+      }
+    }
+
+    async function handleAsrFileSelect(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      const nameDiv = document.getElementById("asrSelectedFileName");
+      nameDiv.innerText = `已选择: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      nameDiv.classList.remove("hidden");
+
+      await uploadAndTranscribe(file);
+    }
+
+    async function uploadAndTranscribe(fileOrBlob) {
+      const loading = document.getElementById("asrLoading");
+      const resultCard = document.getElementById("asrResultCard");
+      loading.classList.remove("hidden");
+      resultCard.classList.add("hidden");
+
+      const formData = new FormData();
+      formData.append("file", fileOrBlob, fileOrBlob.name || "recording.wav");
+
+      try {
+        const resp = await fetch("/api/asr/transcribe", {
+          method: "POST",
+          body: formData
+        });
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+          document.getElementById("asrResultText").value = data.text;
+          resultCard.classList.remove("hidden");
+        } else {
+          alert("识别失败: " + (data.message || "未知原因"));
+        }
+      } catch (e) {
+        alert("识别请求异常: " + e.message);
+      } finally {
+        loading.classList.add("hidden");
+      }
+    }
+
+    async function toggleAsrRecording() {
+      const btn = document.getElementById("asrRecordBtn");
+      const icon = document.getElementById("asrRecordIcon");
+      const status = document.getElementById("asrRecordStatus");
+      const timer = document.getElementById("asrRecordTimer");
+
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = e => {
+          if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          clearInterval(asrRecordTimerInterval);
+          btn.className = "w-14 h-14 rounded-full bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/30 flex items-center justify-center text-xl transition";
+          icon.className = "fa-solid fa-microphone";
+          status.innerText = "录音结束，正在发送识别...";
+          timer.classList.add("hidden");
+          stream.getTracks().forEach(track => track.stop());
+
+          const blob = new Blob(audioChunks, { type: "audio/wav" });
+          await uploadAndTranscribe(blob);
+        };
+
+        mediaRecorder.start();
+        btn.className = "w-14 h-14 rounded-full bg-slate-800 text-rose-400 border-2 border-rose-500 animate-pulse flex items-center justify-center text-xl transition";
+        icon.className = "fa-solid fa-stop";
+        status.innerText = "正在录音中... 点击停止并识别";
+        timer.classList.remove("hidden");
+        asrRecordSeconds = 0;
+        timer.innerText = "00:00";
+        asrRecordTimerInterval = setInterval(() => {
+          asrRecordSeconds++;
+          const m = String(Math.floor(asrRecordSeconds / 60)).padStart(2, '0');
+          const s = String(asrRecordSeconds % 60).padStart(2, '0');
+          timer.innerText = `${m}:${s}`;
+        }, 1000);
+      } catch (e) {
+        alert("无法访问麦克风: " + e.message + "。请确认已在浏览器设置中允许麦克风权限。");
+      }
+    }
+
+    function applyAsrText(mode) {
+      const asrText = document.getElementById("asrResultText").value.trim();
+      if (!asrText) return;
+      const input = document.getElementById("textInput");
+      if (mode === 'replace') {
+        input.value = asrText;
+      } else {
+        input.value = (input.value ? input.value + " " : "") + asrText;
+      }
+      document.getElementById("charCount").innerText = input.value.length + " 字";
+      closeAsrModal();
+    }
+
+    async function copyAsrText() {
+      const txt = document.getElementById("asrResultText").value;
+      if (txt) {
+        await navigator.clipboard.writeText(txt);
+        alert("已复制识别文字！");
+      }
+    }
+
+    // 情感预设库管理与加载
+    let savedEmotionPresets = [];
+
+    async function loadEmotionPresets() {
+      try {
+        const resp = await fetch("/api/emotions");
+        savedEmotionPresets = await resp.json();
+        const select = document.getElementById("savedEmotionSelect");
+        if (!select) return;
+
+        const currentVal = select.value;
+        select.innerHTML = `
+          <option value="voice_bound">⚡ 优先使用当前音色已绑定的专属情感 (如有)</option>
+          ${savedEmotionPresets.map(e => `<option value="${e.filename}">🎭 [预设] ${e.name}</option>`).join("")}
+          <option value="custom_upload">➕ 上传新录音文件并可一键保存复用...</option>
+        `;
+        if (currentVal && [...select.options].some(o => o.value === currentVal)) {
+          select.value = currentVal;
+        }
+      } catch (e) {
+        console.error("加载情感预设失败:", e);
+      }
+    }
+
+    function onSavedEmotionChanged() {
+      const select = document.getElementById("savedEmotionSelect");
+      const uploadBox = document.getElementById("emotionUploadSubBox");
+      if (select.value === "custom_upload") {
+        uploadBox.classList.remove("hidden");
+      } else {
+        uploadBox.classList.add("hidden");
+      }
+    }
+
+    async function saveCurrentEmotionAsPreset() {
+      const fileInput = document.getElementById("emotionAudioFile");
+      const nameInput = document.getElementById("newEmotionPresetName");
+      const name = nameInput.value.trim();
+
+      if (!name) {
+        alert("请为该情感预设输入名称（例如：娇嗔撒娇、委屈哭腔）");
+        nameInput.focus();
+        return;
+      }
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert("请先选择要保存的情感音频文件！");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("audio_file", fileInput.files[0]);
+
+      try {
+        const resp = await fetch("/api/emotions", {
+          method: "POST",
+          body: formData
+        });
+        const res = await resp.json();
+        if (resp.ok && res.success) {
+          alert(`✅ 情感预设【${name}】已成功保存！日后随时可在下拉菜单中复用，无需重复上传。`);
+          nameInput.value = "";
+          await loadEmotionPresets();
+          document.getElementById("savedEmotionSelect").value = res.emotion.filename;
+          onSavedEmotionChanged();
+        } else {
+          alert("保存失败: " + (res.message || "未知原因"));
+        }
+      } catch (e) {
+        alert("保存请求异常: " + e.message);
+      }
+    }
+
+    // 辅助：获取或准备独立情感参考音频 (从绑定的音色、预设库或新上传)
+    async function prepareEmotionAudioId() {
+      if (currentEngine !== 'indextts2') return null;
+      const mode = document.querySelector('input[name="emotionMode"]:checked')?.value || 'audio';
+      if (mode !== 'audio') return null;
+
+      const sourceSelect = document.getElementById("savedEmotionSelect");
+      const choice = sourceSelect ? sourceSelect.value : "voice_bound";
+
+      if (choice === "voice_bound") {
+        return null; // 后端自动采用音色绑定的 emotion_audio
+      } else if (choice === "custom_upload") {
+        const fileInput = document.getElementById("emotionAudioFile");
+        if (!fileInput || !fileInput.files || !fileInput.files[0]) return null;
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        const resp = await fetch("/api/tts/upload_emotion_audio", {
+          method: "POST",
+          body: formData
+        });
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+          return data.emotion_audio_id;
+        }
+        return null;
+      } else {
+        // 选择了已保存的情感预设项
+        return choice;
+      }
+    }
+
+    // 已生成语音结果列表管理 (支持直接试听、一键直发，杜绝二次重复生成)
+    let generatedAudios = [];
+    let currentPlayingAudioId = null;
+
+    function formatAudioTime(seconds) {
+      if (isNaN(seconds) || seconds < 0) return "00:00";
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function renderResultsList() {
+      const card = document.getElementById("resultsCard");
+      const list = document.getElementById("resultsList");
+      const countBadge = document.getElementById("resultsCountBadge");
+
+      if (generatedAudios.length === 0) {
+        card.classList.add("hidden");
+        return;
+      }
+
+      card.classList.remove("hidden");
+      countBadge.innerText = `${generatedAudios.length} 条`;
+      list.innerHTML = "";
+
+      generatedAudios.forEach(item => {
+        const isPlaying = (currentPlayingAudioId === item.audio_id);
+        const row = document.createElement("div");
+        row.className = "p-3.5 bg-gradient-to-br from-slate-50 via-white to-slate-50/80 hover:to-white rounded-2xl border border-slate-200/90 transition shadow-2xs space-y-3";
+
+        const isBreeze = (item.engine === '2113847965285941250' || item.engine === 'breeze');
+        const engineTag = isBreeze
+          ? `<span class="bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full text-[10px]">BreezeTTS2 多角色</span>`
+          : `<span class="bg-purple-100 text-purple-700 font-semibold px-2 py-0.5 rounded-full text-[10px]">IndexTTS2 旗舰情感</span>`;
+
+        // 异步预加载音频时长
+        if (!item.formatted_duration || item.formatted_duration === '--:--') {
+          const preloader = new Audio(item.wav_url);
+          preloader.onloadedmetadata = () => {
+            if (preloader.duration && !isNaN(preloader.duration)) {
+              item.formatted_duration = formatAudioTime(preloader.duration);
+              const durElem = document.getElementById(`audioDuration_${item.audio_id}`);
+              if (durElem) durElem.innerText = item.formatted_duration;
+            }
+          };
+        }
+
+        row.innerHTML = `
+          <!-- 顶部信息栏：角色名、引擎标签、耗时胶囊 (不显示时间戳)、下载与删除 -->
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+              <span class="font-bold text-slate-800">${item.voice_name || 'AI音色'}</span>
+              ${engineTag}
+              <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80 font-mono text-[10px] font-semibold">
+                <i class="fa-solid fa-bolt text-amber-500 text-[9px]"></i>
+                <span>耗时 ${item.elapsed_time ? item.elapsed_time + 's' : '0.0s'}</span>
+              </span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <a href="${item.wav_url}" target="_blank" download class="text-slate-400 hover:text-blue-600 text-xs px-1 transition" title="下载原版 WAV 音频">
+                <i class="fa-solid fa-download"></i>
+              </a>
+              <button onclick="removeAudioItem('${item.audio_id}')" class="text-slate-400 hover:text-rose-600 text-xs px-1 transition" title="删除该条记录">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 现代音频播放条 (支持拖动进度条、播放/暂停、动态波形) -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/90 p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+            <!-- 播放按钮 + 进度轨道 -->
+            <div class="flex items-center space-x-3 flex-1 min-w-0">
+              <!-- 播放/暂停圆形按钮 -->
+              <button type="button" onclick="togglePlayAudioItem('${item.audio_id}', '${item.wav_url}')"
+                class="w-9 h-9 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-95 text-white flex items-center justify-center shrink-0 shadow-xs transition" title="播放/暂停">
+                <i id="playIcon_${item.audio_id}" class="fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-xs ${isPlaying ? '' : 'ml-0.5'}"></i>
+              </button>
+
+              <!-- 时间与拖动进度条 -->
+              <div class="flex-1 flex flex-col justify-center space-y-1.5 min-w-0">
+                <div class="flex items-center justify-between text-[11px] font-mono leading-none">
+                  <span id="audioCurrentTime_${item.audio_id}" class="text-blue-700 font-semibold">00:00</span>
+                  <span id="audioDuration_${item.audio_id}" class="text-slate-400">${item.formatted_duration || '--:--'}</span>
+                </div>
+                <input type="range" id="audioProgress_${item.audio_id}" min="0" max="100" value="${item.progress || 0}" step="0.1"
+                  class="audio-scrubber w-full"
+                  oninput="seekAudioItem('${item.audio_id}', this.value, '${item.wav_url}')" />
+              </div>
+
+              <!-- 动态波形动画条 -->
+              <div id="waveAnim_${item.audio_id}" class="hidden sm:flex items-center space-x-0.5 shrink-0 px-1 py-1 ${isPlaying ? '' : 'opacity-30'}">
+                <span class="w-0.5 h-3 bg-blue-500 rounded-full ${isPlaying ? 'animate-pulse' : ''}"></span>
+                <span class="w-0.5 h-5 bg-indigo-500 rounded-full ${isPlaying ? 'animate-bounce' : ''}"></span>
+                <span class="w-0.5 h-2.5 bg-blue-400 rounded-full ${isPlaying ? 'animate-pulse' : ''}"></span>
+                <span class="w-0.5 h-4 bg-indigo-600 rounded-full ${isPlaying ? 'animate-bounce' : ''}"></span>
+              </div>
+            </div>
+
+            <!-- 右侧：一键直发按钮 (无需二次重复生成) -->
+            <button id="sendBtn_${item.audio_id}" onclick="sendExistingAudio('${item.audio_id}')"
+              class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium text-xs rounded-xl shadow-xs flex items-center justify-center space-x-1.5 transition shrink-0">
+              <i class="fa-solid fa-paper-plane"></i>
+              <span>发送此条</span>
+            </button>
+          </div>
+
+          <!-- 台词台本展示 -->
+          <div class="text-xs text-slate-600 bg-white/70 p-2.5 rounded-xl border border-slate-200/70 select-text line-clamp-2" title="${item.text}">
+            "${item.text}"
+          </div>
+
+          <div id="itemStatus_${item.audio_id}" class="hidden text-[11px] text-emerald-600 font-medium pt-0.5"></div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    function togglePlayAudioItem(audioId, wavUrl) {
+      const player = document.getElementById("globalAudioPlayer");
+
+      if (currentPlayingAudioId === audioId) {
+        if (!player.paused) {
+          player.pause();
+          updateAudioPlayerUI(audioId, false);
+        } else {
+          player.play().catch(() => {});
+          updateAudioPlayerUI(audioId, true);
+        }
+        return;
+      }
+
+      // 如果正在播放其他音频，先暂停并重置原音频UI
+      if (currentPlayingAudioId) {
+        updateAudioPlayerUI(currentPlayingAudioId, false);
+      }
+
+      currentPlayingAudioId = audioId;
+      player.src = wavUrl;
+      player.play().catch(() => {});
+      updateAudioPlayerUI(audioId, true);
+
+      player.ontimeupdate = () => {
+        if (currentPlayingAudioId !== audioId) return;
+        const curTimeElem = document.getElementById(`audioCurrentTime_${audioId}`);
+        const durElem = document.getElementById(`audioDuration_${audioId}`);
+        const scrubber = document.getElementById(`audioProgress_${audioId}`);
+
+        if (curTimeElem) curTimeElem.innerText = formatAudioTime(player.currentTime);
+        if (durElem && player.duration && !isNaN(player.duration)) {
+          durElem.innerText = formatAudioTime(player.duration);
+        }
+        if (scrubber && player.duration && !isNaN(player.duration)) {
+          const pct = (player.currentTime / player.duration) * 100;
+          scrubber.value = pct;
+          const item = generatedAudios.find(x => x.audio_id === audioId);
+          if (item) item.progress = pct;
+        }
+      };
+
+      player.onloadedmetadata = () => {
+        const durElem = document.getElementById(`audioDuration_${audioId}`);
+        if (durElem && player.duration && !isNaN(player.duration)) {
+          const durStr = formatAudioTime(player.duration);
+          durElem.innerText = durStr;
+          const item = generatedAudios.find(x => x.audio_id === audioId);
+          if (item) item.formatted_duration = durStr;
+        }
+      };
+
+      player.onended = () => {
+        updateAudioPlayerUI(audioId, false);
+        const scrubber = document.getElementById(`audioProgress_${audioId}`);
+        const curTimeElem = document.getElementById(`audioCurrentTime_${audioId}`);
+        if (scrubber) scrubber.value = 0;
+        if (curTimeElem) curTimeElem.innerText = "00:00";
+        const item = generatedAudios.find(x => x.audio_id === audioId);
+        if (item) item.progress = 0;
+        currentPlayingAudioId = null;
+      };
+    }
+
+    function updateAudioPlayerUI(audioId, isPlaying) {
+      const icon = document.getElementById(`playIcon_${audioId}`);
+      if (icon) {
+        icon.className = isPlaying ? "fa-solid fa-pause text-xs" : "fa-solid fa-play text-xs ml-0.5";
+      }
+      const wave = document.getElementById(`waveAnim_${audioId}`);
+      if (wave) {
+        if (isPlaying) {
+          wave.classList.remove("opacity-30");
+          wave.querySelectorAll("span").forEach(s => s.classList.add("animate-pulse"));
+        } else {
+          wave.classList.add("opacity-30");
+          wave.querySelectorAll("span").forEach(s => s.classList.remove("animate-pulse"));
+        }
+      }
+    }
+
+    function seekAudioItem(audioId, percent, wavUrl) {
+      const player = document.getElementById("globalAudioPlayer");
+      const curTimeElem = document.getElementById(`audioCurrentTime_${audioId}`);
+
+      if (currentPlayingAudioId !== audioId) {
+        if (currentPlayingAudioId) {
+          updateAudioPlayerUI(currentPlayingAudioId, false);
+        }
+        currentPlayingAudioId = audioId;
+        player.src = wavUrl;
+        player.onloadedmetadata = () => {
+          if (player.duration) {
+            player.currentTime = (percent / 100) * player.duration;
+            if (curTimeElem) curTimeElem.innerText = formatAudioTime(player.currentTime);
+          }
+          player.play().catch(() => {});
+          updateAudioPlayerUI(audioId, true);
+        };
+        return;
+      }
+
+      if (player.duration && !isNaN(player.duration)) {
+        player.currentTime = (percent / 100) * player.duration;
+        if (curTimeElem) curTimeElem.innerText = formatAudioTime(player.currentTime);
+      }
+    }
+
+    function removeAudioItem(audioId) {
+      generatedAudios = generatedAudios.filter(x => x.audio_id !== audioId);
+      const player = document.getElementById("globalAudioPlayer");
+      if (currentPlayingAudioId === audioId) {
+        player.pause();
+        currentPlayingAudioId = null;
+      }
+      renderResultsList();
+    }
+
+    // 直接发送已生成的音频 (耗时 < 0.1s，零重复生成)
+    async function sendExistingAudio(audioId) {
+      const targetQQ = document.getElementById("targetQQ").value.trim();
+      if (!targetQQ || targetQQ.length < 5) {
+        alert(`请输入正确的目标 ${currentTargetType === 'group' ? 'QQ 群号' : '好友 QQ 号'}！`);
+        document.getElementById("targetQQ").focus();
+        return;
+      }
+
+      if (currentTargetType === 'group' && joinedGroups.length > 0) {
+        const isJoined = joinedGroups.some(g => String(g.group_id) === String(targetQQ));
+        if (!isJoined) {
+          const ok = await modernConfirm(`提示：小号当前尚未加入群【${targetQQ}】。\n向未加入的群发送语音会被 QQ 底层拦截（报错 rich media transfer failed）。\n\n是否仍要尝试发送？`, "群聊发送确认");
+          if (!ok) return;
+        }
+      }
+
+      const btn = document.getElementById(`sendBtn_${audioId}`);
+      const statusDiv = document.getElementById(`itemStatus_${audioId}`);
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>发送中...</span>`;
+      }
+
+      try {
+        const resp = await fetch("/api/tts/send_existing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            audio_id: audioId,
+            target_id: parseInt(targetQQ),
+            message_type: currentTargetType
+          })
+        });
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+          localStorage.setItem("talktoyou_target_qq", targetQQ);
+          if (statusDiv) {
+            statusDiv.innerHTML = `✅ 已成功秒发至 ${currentTargetType === 'group' ? 'QQ 群' : '好友'} (${targetQQ})`;
+            statusDiv.classList.remove("hidden");
+          }
+          alert(`🎉 发送成功！语音条已直接送达 ${currentTargetType === 'group' ? 'QQ 群' : 'QQ 好友'}: ${targetQQ}`);
+        } else {
+          alert("发送失败: " + (data.message || data.detail || "未知错误"));
+        }
+      } catch (e) {
+        alert("发送请求异常: " + e.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i><span>发送此条</span>`;
+        }
+      }
+    }
+
+    // 本地试听 (生成后自动加入试听列表，可随时点击发送)
+    async function handlePreview() {
+      const text = document.getElementById("textInput").value.trim();
+      if (!text) {
+        alert("请输入你想说的话！");
+        return;
+      }
+
+      const previewBtn = document.getElementById("previewBtn");
+      previewBtn.disabled = true;
+      previewBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>合成中...</span>`;
+      startSynthProgress(currentEngine);
+
+      try {
+        const speedVal = document.getElementById("speedRange") ? parseInt(document.getElementById("speedRange").value) : 0;
+        const isIndex = (currentEngine === '2113835289022435330' || currentEngine === 'indextts2');
+        const emotionMode = isIndex 
+          ? (document.querySelector('input[name="emotionMode"]:checked')?.value || 'none') 
+          : 'none';
+        const emotionPrompt = isIndex 
+          ? (document.getElementById("emotionPromptText")?.value.trim() || null) 
+          : null;
+        
+        let emoVector = null;
+        if (isIndex && selectedEmotionKey && EMOTION_VECTORS_MAP[selectedEmotionKey]) {
+          emoVector = EMOTION_VECTORS_MAP[selectedEmotionKey];
+        }
+        const emoIntensityRange = document.getElementById("emotionIntensityRange");
+        const emoIntensity = emoIntensityRange ? (parseInt(emoIntensityRange.value) / 100.0) : 1.0;
+
+        const emotionAudioId = isIndex ? await prepareEmotionAudioId() : null;
+        const activeVoice = (currentEngine === '2113847965285941250' || currentEngine === 'breeze')
+          ? selectedBreezeSpeaker
+          : selectedVoiceId;
+
+        const genStartTime = performance.now();
+        const resp = await fetch("/api/tts/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: text,
+            voice_id: activeVoice,
+            engine: currentEngine,
+            speed: speedVal,
+            emotion_mode: emotionMode,
+            emotion_prompt: emotionPrompt,
+            emotion_audio_id: emotionAudioId,
+            emo_vector: emoVector,
+            emo_intensity: emoIntensity
+          })
+        });
+        const rawText = await resp.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (_) {
+          throw new Error(rawText || `HTTP ${resp.status}`);
+        }
+        if (resp.ok && data && data.success) {
+          finishSynthProgress();
+          const elapsedSec = ((performance.now() - genStartTime) / 1000).toFixed(1);
+          const newItem = {
+            audio_id: data.audio_id,
+            wav_url: data.wav_url,
+            silk_url: data.silk_url,
+            text: data.text || text,
+            voice_name: data.voice_name || 'AI音色',
+            engine: data.engine || currentEngine,
+            elapsed_time: data.elapsed_time ? Number(data.elapsed_time).toFixed(1) : elapsedSec,
+            formatted_duration: '--:--',
+            progress: 0
+          };
+          generatedAudios.unshift(newItem);
+          renderResultsList();
+          togglePlayAudioItem(newItem.audio_id, newItem.wav_url);
+        } else {
+          stopSynthProgressWithError(data?.message || "合成失败");
+          alert("合成失败: " + (data?.message || data?.detail || "未知错误"));
+        }
+      } catch (e) {
+        stopSynthProgressWithError(e.message);
+        alert("合成异常: " + e.message);
+      } finally {
+        previewBtn.disabled = false;
+        previewBtn.innerHTML = `<i class="fa-solid fa-volume-high text-slate-500"></i><span>生成并加入试听</span>`;
+      }
+    }
+
+    // 直接生成并发送到 QQ / QQ群
+    async function handleSend() {
+      const text = document.getElementById("textInput").value.trim();
+      const targetQQ = document.getElementById("targetQQ").value.trim();
+
+      if (!text) {
+        alert("请输入你想说的话！");
+        return;
+      }
+      if (!targetQQ || targetQQ.length < 5) {
+        alert(`请输入正确的目标 ${currentTargetType === 'group' ? 'QQ 群号' : '好友 QQ 号'}！`);
+        document.getElementById("targetQQ").focus();
+        return;
+      }
+
+      if (currentTargetType === 'group' && joinedGroups.length > 0) {
+        const isJoined = joinedGroups.some(g => String(g.group_id) === String(targetQQ));
+        if (!isJoined) {
+          const ok = await modernConfirm(`提示：小号当前尚未加入群【${targetQQ}】。\n向未加入的群发送语音会被 QQ 底层拦截（报错 rich media transfer failed）。\n\n是否仍要尝试发送？`, "群聊发送确认");
+          if (!ok) return;
+        }
+      }
+
+      localStorage.setItem("talktoyou_target_qq", targetQQ);
+
+      const sendBtn = document.getElementById("sendBtn");
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>生成并发送中...</span>`;
+      startSynthProgress(currentEngine);
+
+      try {
+        const speedVal = document.getElementById("speedRange") ? parseInt(document.getElementById("speedRange").value) : 0;
+        const isIndex = (currentEngine === '2113835289022435330' || currentEngine === 'indextts2');
+        const emotionMode = isIndex 
+          ? (document.querySelector('input[name="emotionMode"]:checked')?.value || 'none') 
+          : 'none';
+        const emotionPrompt = isIndex 
+          ? (document.getElementById("emotionPromptText")?.value.trim() || null) 
+          : null;
+        
+        let emoVector = null;
+        if (isIndex && selectedEmotionKey && EMOTION_VECTORS_MAP[selectedEmotionKey]) {
+          emoVector = EMOTION_VECTORS_MAP[selectedEmotionKey];
+        }
+        const emoIntensityRange = document.getElementById("emotionIntensityRange");
+        const emoIntensity = emoIntensityRange ? (parseInt(emoIntensityRange.value) / 100.0) : 1.0;
+
+        const emotionAudioId = isIndex ? await prepareEmotionAudioId() : null;
+        const activeVoice = (currentEngine === '2113847965285941250' || currentEngine === 'breeze')
+          ? selectedBreezeSpeaker
+          : selectedVoiceId;
+
+        const genStartTime = performance.now();
+        const resp = await fetch("/api/tts/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: text,
+            voice_id: activeVoice,
+            target_qq: parseInt(targetQQ),
+            message_type: currentTargetType,
+            engine: currentEngine,
+            speed: speedVal,
+            emotion_mode: emotionMode,
+            emotion_prompt: emotionPrompt,
+            emotion_audio_id: emotionAudioId,
+            emo_vector: emoVector,
+            emo_intensity: emoIntensity
+          })
+        });
+        const rawText = await resp.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (_) {
+          throw new Error(rawText || `HTTP ${resp.status}`);
+        }
+
+        if (resp.ok && data && data.success) {
+          finishSynthProgress();
+          const elapsedSec = ((performance.now() - genStartTime) / 1000).toFixed(1);
+          const newItem = {
+            audio_id: data.audio_id,
+            wav_url: data.wav_url,
+            silk_url: data.silk_url,
+            text: data.text || text,
+            voice_name: data.voice_name || 'AI音色',
+            engine: data.engine || currentEngine,
+            elapsed_time: data.elapsed_time ? Number(data.elapsed_time).toFixed(1) : elapsedSec,
+            formatted_duration: '--:--',
+            progress: 0
+          };
+          generatedAudios.unshift(newItem);
+          renderResultsList();
+          alert(`🎉 语音消息发送成功！已送达 ${currentTargetType === 'group' ? 'QQ 群' : 'QQ 好友'}: ${targetQQ}`);
+        } else if (data && data.bot_offline) {
+          finishSynthProgress();
+          const elapsedSec = ((performance.now() - genStartTime) / 1000).toFixed(1);
+          const newItem = {
+            audio_id: data.audio_id,
+            wav_url: data.wav_url,
+            silk_url: data.silk_url,
+            text: data.text || text,
+            voice_name: data.voice_name || 'AI音色',
+            engine: data.engine || currentEngine,
+            elapsed_time: data.elapsed_time ? Number(data.elapsed_time).toFixed(1) : elapsedSec,
+            formatted_duration: '--:--',
+            progress: 0
+          };
+          generatedAudios.unshift(newItem);
+          renderResultsList();
+          alert(data.message);
+        } else {
+          stopSynthProgressWithError(data?.message || "发送失败");
+          alert("发送失败: " + (data?.message || data?.detail || "未知错误"));
+        }
+      } catch (e) {
+        stopSynthProgressWithError(e.message);
+        alert("发送异常: " + e.message);
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i><span>生成并立即发送</span>`;
+      }
+    }
+
+    // 新增自定义音色 (支持绑定专属情感音频)
+    async function handleCreateVoice() {
+      const name = document.getElementById("customName").value.trim();
+      const fileInput = document.getElementById("customAudioFile");
+      const desc = document.getElementById("customDesc").value.trim();
+      const promptText = document.getElementById("customPromptText").value.trim();
+      const emotionFileInput = document.getElementById("customEmotionFile");
+      const emotionNameInput = document.getElementById("customEmotionName");
+
+      if (!name) {
+        alert("请填写音色名称");
+        return;
+      }
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert("请选择一段清晰的人物录音文件 (WAV/MP3)");
+        return;
+      }
+
+      const saveBtn = document.getElementById("saveVoiceBtn");
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>保存并上传中...</span>`;
+
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("description", desc);
+      formData.append("prompt_text", promptText);
+      formData.append("audio_file", fileInput.files[0]);
+
+      if (emotionFileInput && emotionFileInput.files && emotionFileInput.files[0]) {
+        formData.append("emotion_audio_file", emotionFileInput.files[0]);
+        if (emotionNameInput && emotionNameInput.value.trim()) {
+          formData.append("emotion_name", emotionNameInput.value.trim());
+        }
+      }
+
+      try {
+        const resp = await fetch("/api/voices/custom", {
+          method: "POST",
+          body: formData
+        });
+        const res = await resp.json();
+        if (res.success) {
+          alert("🎉 自定义音色添加成功！" + (res.voice.emotion_audio ? "（已自动绑定专属情感音频）" : ""));
+          document.getElementById("customName").value = "";
+          document.getElementById("customDesc").value = "";
+          document.getElementById("customPromptText").value = "";
+          fileInput.value = "";
+          if (emotionFileInput) emotionFileInput.value = "";
+          if (emotionNameInput) emotionNameInput.value = "";
+          await loadVoices();
+          selectVoice(res.voice.id);
+          switchTab('presetVoiceTab');
+        } else {
+          alert("添加失败: " + (res.detail || "未知错误"));
+        }
+      } catch (e) {
+        alert("上传异常: " + e.message);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i><span>保存并添加该音色</span>`;
+      }
+    }
+
+    // 删除自定义音色
+    async function handleDeleteVoice(voiceId) {
+      const ok = await modernConfirm("确定要删除该自定义音色吗？删除后不可恢复。", "删除音色", "danger");
+      if (!ok) return;
+      try {
+        const resp = await fetch(`/api/voices/custom/${voiceId}`, { method: "DELETE" });
+        const res = await resp.json();
+        if (res.success) {
+          await loadVoices();
+        } else {
+          alert("删除失败: " + res.detail);
+        }
+      } catch (e) {
+        alert("删除异常: " + e.message);
+      }
+    }
+
+    // ==================== NapCat 深度集成与扫码中控控制器 ====================
+    let napcatPollTimer = null;
+
+    function openConfigModal() {
+      document.getElementById("configModal").classList.remove("hidden");
+      loadNapCatModalStatus();
+      if (!napcatPollTimer) {
+        napcatPollTimer = setInterval(loadNapCatModalStatus, 2500);
+      }
+    }
+
+    function closeConfigModal() {
+      document.getElementById("configModal").classList.add("hidden");
+      if (napcatPollTimer) {
+        clearInterval(napcatPollTimer);
+        napcatPollTimer = null;
+      }
+      checkBotStatus();
+    }
+
+    async function loadNapCatModalStatus() {
+      try {
+        const resp = await fetch("/api/napcat/status");
+        const data = await resp.json();
+
+        const procDot = document.getElementById("napcatProcDot");
+        const procTitle = document.getElementById("napcatProcTitle");
+        const procSub = document.getElementById("napcatProcSub");
+        const btnStart = document.getElementById("btnStartNapCat");
+        const btnRestart = document.getElementById("btnRestartNapCat");
+        const btnStop = document.getElementById("btnStopNapCat");
+
+        const loginedView = document.getElementById("qqLoginedView");
+        const qrView = document.getElementById("qqQrView");
+        const stoppedView = document.getElementById("qqStoppedView");
+
+        if (!data.running) {
+          // 进程未运行
+          procDot.className = "w-3.5 h-3.5 rounded-full bg-rose-500 shadow-sm";
+          procTitle.innerText = "NapCat 守护进程未启动";
+          procSub.innerText = "点击右侧按钮可直接在后台一键拉起";
+          btnStart.classList.remove("hidden");
+          btnRestart.classList.add("hidden");
+          btnStop.classList.add("hidden");
+
+          stoppedView.classList.remove("hidden");
+          loginedView.classList.add("hidden");
+          qrView.classList.add("hidden");
+          return;
+        }
+
+        // 进程运行中
+        btnStart.classList.add("hidden");
+        btnRestart.classList.remove("hidden");
+        btnStop.classList.remove("hidden");
+
+        procDot.className = "w-3.5 h-3.5 rounded-full bg-emerald-500 animate-pulse shadow-sm";
+        procTitle.innerText = `NapCat 守护进程运行中 (PID: ${data.pid || '已托管'})`;
+        procSub.innerText = `WebUI 端口: ${data.webui_port || 6099} · 通信正常`;
+
+        if (data.is_login && data.account) {
+          // 已登录状态
+          stoppedView.classList.add("hidden");
+          qrView.classList.add("hidden");
+          loginedView.classList.remove("hidden");
+
+          document.getElementById("qqUserNick").innerText = data.account.nick || "QQ机器人";
+          document.getElementById("qqUserUin").innerText = data.account.uin || "--";
+          const avatarUrl = data.account.avatarUrl || `https://q1.qlogo.cn/g?b=qq&nk=${data.account.uin}&s=640`;
+          document.getElementById("qqUserAvatar").src = avatarUrl;
+
+          // 核心：已登录时立即同步顶栏状态标签，无需等待10秒
+          checkBotStatus();
+
+          if (!window._napcatLoginToastTriggered) {
+            window._napcatLoginToastTriggered = true;
+            showToast(`🎉 QQ 机器人已连接就绪: ${data.account.nick || ''} (${data.account.uin || ''})`, "success", 4000);
+          }
+        } else {
+          window._napcatLoginToastTriggered = false;
+          // 未登录：扫码等待状态
+          stoppedView.classList.add("hidden");
+          loginedView.classList.add("hidden");
+          qrView.classList.remove("hidden");
+
+          const qrImg = document.getElementById("qqQrImg");
+          const qrB64 = data.qrcode_base64 || data.qr_base64;
+          const qrUrl = data.qrcode_url || data.qr_url;
+
+          if (qrB64) {
+            qrImg.src = qrB64;
+          } else if (qrUrl) {
+            qrImg.src = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" + encodeURIComponent(qrUrl);
+          }
+
+          const statusText = document.getElementById("qqQrStatusText");
+          if (data.login_error && (data.login_error.includes("已登录") || data.login_error.includes("重复登录"))) {
+            statusText.innerHTML = `
+              <div class="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-2xl text-left space-y-1.5 text-xs shadow-xs">
+                <div class="font-bold flex items-center space-x-1.5 text-rose-800">
+                  <i class="fa-solid fa-triangle-exclamation text-rose-600"></i>
+                  <span>腾讯拦截提醒：检测到重复登录冲突</span>
+                </div>
+                <p class="text-[11px] text-rose-600 leading-relaxed">
+                  你扫码授权的账号目前正登录在本机电脑桌面版 QQ 中，腾讯禁止同机双开相同账号。
+                </p>
+                <div class="text-[11px] text-slate-700 font-medium pt-0.5 space-y-0.5">
+                  <div>👉 <strong>推荐解法</strong>：拿手机 QQ 换用<strong>其他小号</strong>再次扫码；</div>
+                  <div>👉 <strong>或退出桌面端</strong>：先退出任务栏桌面 QQ，再扫码。</div>
+                </div>
+              </div>
+            `;
+            if (window._lastConflictReported !== data.login_error) {
+              window._lastConflictReported = data.login_error;
+              showToast("⚠️ 授权冲突：该账号正在本机电脑 QQ 运行，请换用小号扫码或先退出桌面版 QQ", "warning", 6000);
+            }
+          } else if (data.login_phase === "WaitingForScan" || data.login_phase === "waiting_qrcode") {
+            statusText.innerText = "📱 请使用手机 QQ 扫码授权登录";
+          } else if (data.login_phase === "WaitingForConfirm" || data.login_phase === "qrcode_scanned") {
+            statusText.innerText = "⌛ 扫码成功！请在手机 QQ 点击【允许登录】";
+          } else if (data.login_phase === "QRCodeExpired" || data.login_phase === "qrcode_expired") {
+            statusText.innerText = "⚠️ 二维码已过期，请点击下方刷新二维码";
+          } else if (data.message) {
+            statusText.innerText = data.message;
+          } else {
+            statusText.innerText = "📱 请使用手机 QQ 扫码授权登录";
+          }
+        }
+      } catch (e) {
+        console.error("加载 NapCat 状态失败:", e);
+      }
+    }
+
+    async function startNapCatDaemon() {
+      const btn = document.getElementById("btnStartNapCat");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-[10px]"></i><span>启动中...</span>`;
+      try {
+        const resp = await fetch("/api/napcat/start", { method: "POST" });
+        const res = await resp.json();
+        if (res.success) {
+          await new Promise(r => setTimeout(r, 1500));
+          await loadNapCatModalStatus();
+          checkBotStatus();
+        } else {
+          alert("启动失败: " + (res.message || "未知错误"));
+        }
+      } catch (e) {
+        alert("启动异常: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-play text-[10px]"></i><span>启动服务</span>`;
+      }
+    }
+
+    async function stopNapCatDaemon() {
+      const ok = await modernConfirm("确定要停止 NapCat 守护进程吗？停止后将无法发送 QQ 语音条。", "停止服务", "danger");
+      if (!ok) return;
+      try {
+        const resp = await fetch("/api/napcat/stop", { method: "POST" });
+        const res = await resp.json();
+        if (res.success) {
+          await loadNapCatModalStatus();
+          checkBotStatus();
+        } else {
+          alert("停止失败: " + res.message);
+        }
+      } catch (e) {
+        alert("停止异常: " + e.message);
+      }
+    }
+
+    async function restartNapCatDaemon() {
+      try {
+        const resp = await fetch("/api/napcat/restart", { method: "POST" });
+        const res = await resp.json();
+        if (res.success) {
+          await new Promise(r => setTimeout(r, 2000));
+          await loadNapCatModalStatus();
+          checkBotStatus();
+        } else {
+          alert("重启失败: " + res.message);
+        }
+      } catch (e) {
+        alert("重启异常: " + e.message);
+      }
+    }
+
+    async function refreshNapCatQR() {
+      const qrImg = document.getElementById("qqQrImg");
+      const statusText = document.getElementById("qqQrStatusText");
+      statusText.innerText = "🔄 正在刷新二维码，请稍候...";
+      try {
+        const resp = await fetch("/api/napcat/refresh_qr", { method: "POST" });
+        const res = await resp.json();
+        const qrB64 = res.qrcode_base64 || res.qr_base64;
+        const qrUrl = res.qrcode_url || res.qr_url;
+        if (qrB64) {
+          qrImg.src = qrB64;
+          statusText.innerText = "📱 二维码已刷新，请使用手机 QQ 扫码";
+        } else if (qrUrl) {
+          qrImg.src = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" + encodeURIComponent(qrUrl);
+          statusText.innerText = "📱 二维码已刷新，请使用手机 QQ 扫码";
+        } else {
+          alert("刷新二维码失败: " + (res.message || "未知原因"));
+        }
+        await loadNapCatModalStatus();
+      } catch (e) {
+        alert("请求异常: " + e.message);
+      }
+    }
+
+    async function triggerReQRLogin() {
+      const loginedView = document.getElementById("qqLoginedView");
+      const qrView = document.getElementById("qqQrView");
+      loginedView.classList.add("hidden");
+      qrView.classList.remove("hidden");
+      await refreshNapCatQR();
+    }
+
+    async function saveBotConfig() {
+      const url = document.getElementById("onebotUrl").value.trim();
+      const token = document.getElementById("onebotToken").value.trim();
+      try {
+        const resp = await fetch("/api/config/bot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ onebot_url: url, access_token: token || null })
+        });
+        const res = await resp.json();
+        closeConfigModal();
+        checkBotStatus();
+        if (res.online) {
+          alert(`✅ NapCatQQ 连接成功！已登录: ${res.nickname} (${res.user_id})`);
+        } else {
+          alert(`⚠️ 保存成功，但未检测到在线小号: ${res.message}`);
+        }
+      } catch (e) {
+        alert("配置请求异常: " + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
